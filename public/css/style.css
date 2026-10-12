@@ -336,6 +336,7 @@ input[type='checkbox'] { width: 22px; height: 22px; accent-color: var(--primary)
   max-width: calc(100% - 32px);
   box-shadow: 0 8px 24px #000a;
   transition: transform 0.25s;
+  pointer-events: none;
 }
 .toast.show { transform: translate(-50%, 0); }
 .toast.error { background: var(--danger); }
@@ -361,7 +362,7 @@ input[type='checkbox'] { width: 22px; height: 22px; accent-color: var(--primary)
 
 /* ---------- Moderator ---------- */
 
-.mod-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.mod-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
 .mod-header h1 { margin: 0; }
 .mod-header .btn { width: auto; }
 .badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-weight: 700; font-size: 0.85rem; }
@@ -434,3 +435,6 @@ input[type='checkbox'] { width: 22px; height: 22px; accent-color: var(--primary)
   .votes { columns: 1; }
   .color-grid { grid-template-columns: repeat(6, 1fr); }
 }
+.mod-header-actions { flex: none; gap: 6px; }
+.mod-header-actions > * { flex: none; }
+a.btn { text-decoration: none; text-align: center; }

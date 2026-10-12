@@ -34,17 +34,17 @@ async function login(pin) {
   const res = await new Promise((r) => socket.emit('mod:login', { pin }, r));
   if (res.ok) {
     loggedIn = true;
-    sessionStorage.setItem(PIN_KEY, pin);
+    localStorage.setItem(PIN_KEY, pin);
     $('#login').classList.add('hidden');
     $('#dash').classList.remove('hidden');
   } else {
-    sessionStorage.removeItem(PIN_KEY);
+    localStorage.removeItem(PIN_KEY);
     toast(res.error, 'error');
   }
 }
 
 socket.on('connect', () => {
-  const pin = sessionStorage.getItem(PIN_KEY);
+  const pin = localStorage.getItem(PIN_KEY);
   if (pin) login(pin);
 });
 

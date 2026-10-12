@@ -114,6 +114,11 @@ class Game {
     this.sabotageReadyAt = 0;
     this.winner = null;
     this.startedAt = null;
+    this.endedAt = null;
+    // Für das Live-Board: Ereignisse, Meeting-Verlauf und Aufgaben-Fortschritt über die Zeit
+    this.events = [];
+    this.meetingHistory = [];
+    this.progressLog = [];
     for (const p of this.players.values()) {
       p.role = null;
       p.alive = true;
@@ -308,13 +313,21 @@ class Game {
     this.sabotageReadyAt = now + this.settings.sabotageCooldown * 1000;
     this.phase = 'playing';
     this.startedAt = now;
+    this.progressLog.push({ at: now, ...this.taskProgress() });
+    this.logEvent(now, 'start', `Spiel gestartet: ${chosen.length} Spieler, ${impostors} Impostor`);
+  }
+
+  /** secret = nur mit Geheimnissen sichtbar (z. B. wer wen getötet hat). */
+  logEvent(now, type, text, { secret = false, players = [] } = {}) {
+    this.events.push({ id: id(), at: now, type, text, secret, players });
+    if (this.events.length > 200) this.events.shift();
   }
 
   requirePlaying() {
     if (this.phase !== 'playing') throw new GameError('Das geht gerade nicht.');
   }
 
-  completeTask(playerId, taskId, code) {
+  completeTask(playerId, taskId, code, now = Date.now()) {
     const p = this.getPlayer(playerId);
     if (this.phase !== 'playing') throw new GameError('Aufgaben gehen nur während des Spiels.');
     const task = p.tasks.find((t) => t.id === taskId);
@@ -324,7 +337,13 @@ class Game {
       throw new GameError('Falscher Code. Schau nochmal am Aufgabenort nach!');
     }
     task.done = true;
-    this.checkWin();
+    if (p.role === 'crewmate') {
+      this.progressLog.push({ at: now, ...this.taskProgress() });
+      this.logEvent(now, 'task', `${p.name} hat „${task.name}" erledigt`, { secret: true, players: [p.id] });
+    } else {
+      this.logEvent(now, 'fake-task', `${p.name} hat die Tarnaufgabe „${task.name}" abgehakt`, { secret: true, players: [p.id] });
+    }
+    this.checkWin(now);
   }
 
   kill(impostorId, victimId, now) {
@@ -336,7 +355,8 @@ class Game {
     if (!victim.role || !victim.alive || victim.role === 'impostor') throw new GameError('Ungültiges Opfer.');
     this.markDead(victim, now);
     imp.killReadyAt = now + this.settings.killCooldown * 1000;
-    this.checkWin();
+    this.logEvent(now, 'kill', `${imp.name} hat ${victim.name} getötet`, { secret: true, players: [imp.id, victim.id] });
+    this.checkWin(now);
   }
 
   /** Opfer meldet selbst „Ich wurde getötet" (Impostor hat im echten Leben angetippt). */
@@ -346,7 +366,8 @@ class Game {
     if (!p.role || !p.alive) throw new GameError('Du bist schon tot.');
     if (p.role === 'impostor') throw new GameError('Impostor können nicht getötet werden.');
     this.markDead(p, now);
-    this.checkWin();
+    this.logEvent(now, 'kill', `${p.name} wurde getötet`, { secret: true, players: [p.id] });
+    this.checkWin(now);
   }
 
   markDead(p, now) {
@@ -364,10 +385,12 @@ class Game {
       p.alive = true;
       p.ejected = false;
       p.diedAt = null;
+      this.logEvent(now, 'mod', `Moderator hat ${p.name} wiederbelebt`, { secret: true, players: [p.id] });
     } else if (p.alive) {
       this.markDead(p, now);
+      this.logEvent(now, 'mod', `Moderator hat ${p.name} als tot markiert`, { secret: true, players: [p.id] });
     }
-    this.checkWin();
+    this.checkWin(now);
   }
 
   callMeeting(callerId, bodyId, now) {
@@ -388,7 +411,16 @@ class Game {
     }
 
     // Nach dem Meeting gelten alle bis dahin Gestorbenen als gefunden.
-    for (const p of this.participants()) if (!p.alive) p.bodyReported = true;
+    const found = this.participants().filter((p) => !p.alive && !p.bodyReported);
+    for (const p of found) p.bodyReported = true;
+
+    if (body) this.logEvent(now, 'report', `${caller.name} hat die Leiche von ${body.name} gemeldet`, { players: [caller.id, body.id] });
+    else if (caller) this.logEvent(now, 'meeting', `${caller.name} hat ein Notfall-Meeting einberufen`, { players: [caller.id] });
+    else this.logEvent(now, 'meeting', 'Der Moderator hat ein Meeting einberufen');
+    const others = found.filter((p) => p !== body);
+    if (others.length) {
+      this.logEvent(now, 'dead', `Ebenfalls tot: ${others.map((p) => p.name).join(', ')}`, { players: others.map((p) => p.id) });
+    }
 
     const discussion = this.settings.discussionTime;
     this.meeting = {
@@ -467,7 +499,23 @@ class Game {
       ejectedWasImpostor: ejected ? ejected.role === 'impostor' : null,
       tie,
     };
-    this.checkWin();
+    this.meetingHistory.push({
+      id: m.id,
+      at: now,
+      type: m.type,
+      callerId: m.callerId,
+      bodyId: m.bodyId,
+      votes: { ...m.votes },
+      ...m.result,
+    });
+    if (ejected) {
+      const role = ejected.role === 'impostor' ? 'ein Impostor' : 'kein Impostor';
+      this.logEvent(now, 'eject', `${ejected.name} wurde rausgeworfen`, { players: [ejected.id] });
+      this.logEvent(now, 'eject-role', `${ejected.name} war ${role}`, { secret: !this.settings.confirmEjects, players: [ejected.id] });
+    } else {
+      this.logEvent(now, 'eject', `Niemand wurde rausgeworfen${tie ? ' (Gleichstand)' : ''}`);
+    }
+    this.checkWin(now);
   }
 
   endMeeting(now) {
@@ -478,7 +526,7 @@ class Game {
       if (p.role === 'impostor') p.killReadyAt = now + this.settings.killCooldown * 1000;
     }
     this.sabotageReadyAt = Math.max(this.sabotageReadyAt, now + 10_000);
-    this.checkWin();
+    this.checkWin(now);
   }
 
   startSabotage(impostorId, now) {
@@ -495,6 +543,8 @@ class Game {
       fixedBy: [],
       needed: this.settings.sabotageFixesNeeded,
     };
+    this.logEvent(now, 'sabotage', 'Reaktor sabotiert!');
+    this.logEvent(now, 'sabotage-by', `Sabotage ausgelöst von ${imp.name}`, { secret: true, players: [imp.id] });
   }
 
   fixSabotage(playerId, now) {
@@ -505,7 +555,11 @@ class Game {
     if (!p.role || !p.alive) throw new GameError('Nur lebende Spieler können reparieren.');
     if (s.fixedBy.includes(p.id)) throw new GameError('Du hast schon repariert – ein anderer Spieler muss helfen!');
     s.fixedBy.push(p.id);
-    if (s.fixedBy.length >= s.needed) this.endSabotage(now);
+    if (s.fixedBy.length >= s.needed) {
+      this.endSabotage(now);
+      const names = s.fixedBy.map((pid) => this.players.get(pid)?.name).filter(Boolean).join(' & ');
+      this.logEvent(now, 'fixed', `Reaktor repariert von ${names}`, { players: s.fixedBy });
+    }
   }
 
   endSabotage(now) {
@@ -513,10 +567,12 @@ class Game {
     this.sabotageReadyAt = now + this.settings.sabotageCooldown * 1000;
   }
 
-  end(winner, reason) {
+  end(winner, reason, now = Date.now()) {
     this.phase = 'ended';
     this.sabotage = null;
     this.winner = { team: winner, reason };
+    this.endedAt = now;
+    this.logEvent(now, 'end', `${winner === 'crew' ? 'Sieg der Crew' : 'Sieg der Impostor'}: ${reason}`);
   }
 
   taskProgress() {
@@ -530,22 +586,22 @@ class Game {
     return { total, done };
   }
 
-  checkWin() {
+  checkWin(now = Date.now()) {
     // Während eines Meetings wird erst nach der Ergebnis-Anzeige gewertet (endMeeting).
     if (this.phase !== 'playing') return;
     const ps = this.participants();
     const aliveImp = ps.filter((p) => p.alive && p.role === 'impostor').length;
     const aliveCrew = ps.filter((p) => p.alive && p.role === 'crewmate').length;
     const { total, done } = this.taskProgress();
-    if (aliveImp === 0) return this.end('crew', 'Alle Impostor wurden enttarnt!');
-    if (total > 0 && done >= total) return this.end('crew', 'Alle Aufgaben wurden erledigt!');
-    if (aliveImp >= aliveCrew) return this.end('impostors', 'Die Impostor sind in der Überzahl!');
+    if (aliveImp === 0) return this.end('crew', 'Alle Impostor wurden enttarnt!', now);
+    if (total > 0 && done >= total) return this.end('crew', 'Alle Aufgaben wurden erledigt!', now);
+    if (aliveImp >= aliveCrew) return this.end('impostors', 'Die Impostor sind in der Überzahl!', now);
   }
 
   /** Wird regelmäßig vom Server aufgerufen; gibt true zurück, wenn sich etwas geändert hat. */
   tick(now) {
     if (this.phase === 'playing' && this.sabotage && now >= this.sabotage.endsAt) {
-      this.end('impostors', 'Die Sabotage wurde nicht rechtzeitig repariert!');
+      this.end('impostors', 'Die Sabotage wurde nicht rechtzeitig repariert!', now);
       return true;
     }
     if (this.phase === 'meeting' && this.meeting && now >= this.meeting.endsAt) {
@@ -666,6 +722,11 @@ class Game {
     }));
     view.taskCatalog = this.taskCatalog;
     view.sabotageReadyAt = this.sabotageReadyAt;
+    view.startedAt = this.startedAt;
+    view.endedAt = this.endedAt;
+    view.events = this.events.slice(-60);
+    view.meetingHistory = this.meetingHistory;
+    view.progressLog = this.progressLog;
     if (this.sabotage) view.sabotage.fixedBy = this.sabotage.fixedBy;
     return view;
   }

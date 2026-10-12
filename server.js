@@ -49,6 +49,7 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/moderator', (req, res) => res.sendFile(path.join(__dirname, 'public', 'moderator.html')));
+app.get('/live', (req, res) => res.sendFile(path.join(__dirname, 'public', 'live.html')));
 
 // QR-Code mit der Beitritts-Adresse, damit Spieler nicht tippen müssen
 app.get('/api/join-info', async (req, res) => {
@@ -128,7 +129,7 @@ io.on('connection', (socket) => {
 
   socket.on('player:rename', handle(socket, requirePlayer(({ name }) => game.renamePlayer(playerId, name))));
   socket.on('player:color', handle(socket, requirePlayer(({ color }) => game.setColor(playerId, color))));
-  socket.on('task:complete', handle(socket, requirePlayer(({ taskId, code }) => game.completeTask(playerId, taskId, code))));
+  socket.on('task:complete', handle(socket, requirePlayer(({ taskId, code }, now) => game.completeTask(playerId, taskId, code, now))));
   socket.on('player:kill', handle(socket, requirePlayer(({ victimId }, now) => game.kill(playerId, victimId, now))));
   socket.on('player:died', handle(socket, requirePlayer((_, now) => game.reportOwnDeath(playerId, now))));
   socket.on('meeting:call', handle(socket, requirePlayer(({ bodyId }, now) => game.callMeeting(playerId, bodyId || null, now))));
@@ -169,9 +170,9 @@ io.on('connection', (socket) => {
     game.endSabotage(now);
   })));
   socket.on('mod:announce', handle(socket, requireMod(({ text }, now) => game.announce(text, now))));
-  socket.on('mod:end', handle(socket, requireMod(({ winner }) => {
+  socket.on('mod:end', handle(socket, requireMod(({ winner }, now) => {
     if (game.phase !== 'playing' && game.phase !== 'meeting') throw new GameError('Kein laufendes Spiel.');
-    game.end(winner === 'impostors' ? 'impostors' : 'crew', 'Der Moderator hat das Spiel beendet.');
+    game.end(winner === 'impostors' ? 'impostors' : 'crew', 'Der Moderator hat das Spiel beendet.', now);
   })));
   socket.on('mod:lobby', handle(socket, requireMod(() => game.resetRound())));
 

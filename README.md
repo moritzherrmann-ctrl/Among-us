@@ -26,6 +26,18 @@ Ein Gerät (Laptop/PC) startet den Server, alle anderen Handys/Tablets verbinden
 - Meetings einberufen/weiterschalten, Spieler tot/lebendig setzen, Sabotage beenden, Spiel beenden
 - 📢 Nachrichten an alle Geräte, 📱 QR-Code zum Beitreten
 
+**Live-Board** (`http://<IP>:3000/live`, mit PIN) – für PC, Beamer oder TV
+- Lobby: großer QR-Code und alle beigetretenen Spieler
+- Während des Spiels: Kennzahlen, Aufgaben-Fortschritt über die Zeit (mit Meeting-Markierungen),
+  Spielerübersicht, Ereignis-Protokoll, Meeting-Verlauf, Sabotage-Countdown
+- Meetings: Abstimmung als Live-Balkendiagramm mit den Abstimmenden, Rauswurf-Ergebnis
+- Spielende: Sieger, Statistik (Dauer, Kills, Rauswürfe), fleißigste Crewmates
+- Schalter **Publikumsmodus / Geheimnisse sichtbar**: Im Publikumsmodus sieht man keine Rollen,
+  keine unentdeckten Leichen und die Stimmen erst nach der Abstimmung – sicher für einen Bildschirm,
+  den alle sehen. Mit Geheimnissen sieht der Moderator alles live.
+
+Tipp: Live-Board auf dem PC, Moderatoren-Ansicht zum Steuern auf dem Handy. Beide sind gleichzeitig nutzbar.
+
 Aufgabenkatalog und Einstellungen werden in `data/config.json` gespeichert.
 
 ## Starten
@@ -72,4 +84,4 @@ npm test   # Tests der Spiellogik
 
 - `server.js` – Webserver + Echtzeit-Kommunikation (Socket.IO)
 - `src/game.js` – komplette Spiellogik (Rollen, Aufgaben, Meetings, Sabotage, Siegbedingungen)
-- `public/` – Spieler- (`index.html`) und Moderatoren-Oberfläche (`moderator.html`)
+- `public/` – Spieler- (`index.html`), Moderatoren- (`moderator.html`) und Live-Board-Oberfläche (`live.html`)

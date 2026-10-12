@@ -149,3 +149,21 @@ test('Neue Runde setzt alles zurück', () => {
   assert.equal(game.phase, 'lobby');
   assert.ok(players.every((p) => p.role === null && p.alive && p.tasks.length === 0));
 });
+
+test('Live-Board: Ereignisse, Meeting-Verlauf und Fortschritt werden protokolliert', () => {
+  const { game, impostors, crew } = started(5, { killCooldown: 0, discussionTime: 0 });
+  game.completeTask(crew[0].id, crew[0].tasks[0].id, '', 1000);
+  game.kill(impostors[0].id, crew[1].id, 2000);
+  game.callMeeting(crew[0].id, crew[1].id, 3000);
+  for (const p of [crew[0], crew[2], crew[3], impostors[0]]) game.vote(p.id, 'skip', 4000);
+  const types = game.events.map((e) => e.type);
+  assert.deepEqual(types, ['start', 'task', 'kill', 'report', 'eject']);
+  assert.equal(game.events.find((e) => e.type === 'kill').secret, true);
+  assert.equal(game.events.find((e) => e.type === 'report').secret, false);
+  assert.equal(game.meetingHistory.length, 1);
+  assert.equal(game.meetingHistory[0].ejectedId, null);
+  assert.equal(game.progressLog.length, 2);
+  const view = game.moderatorView(5000);
+  assert.equal(view.events.length, 5);
+  assert.equal(view.meetingHistory.length, 1);
+});

@@ -1,0 +1,19 @@
+{
+  "name": "among-us-reallife",
+  "version": "1.0.0",
+  "description": "Among Us im echten Leben – Spieler-, Aufgaben- und Moderatoren-App, die auf allen Geräten im WLAN läuft",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.3.0",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.4"
+  }
+}

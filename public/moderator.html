@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f1e">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <title>Moderator – Among Us Real Life</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="moderator">
+  <div class="stars"></div>
+  <main class="container wide">
+    <section id="login" class="screen">
+      <div class="hero">
+        <h1>MODERATOR</h1>
+      </div>
+      <form id="login-form" class="card">
+        <label for="pin">Moderator-PIN <small>(wird beim Serverstart angezeigt)</small></label>
+        <input id="pin" inputmode="numeric" autocomplete="off" placeholder="PIN" required>
+        <button class="btn primary big" type="submit">Anmelden</button>
+      </form>
+      <p class="hint center"><a href="/">Zur Spieler-Ansicht</a></p>
+    </section>
+
+    <section id="dash" class="screen hidden">
+      <header class="mod-header">
+        <div>
+          <h1>Moderator</h1>
+          <div id="phase-badge"></div>
+        </div>
+        <button class="btn secondary small" id="qr-btn">📱 Beitreten-QR</button>
+      </header>
+      <nav class="tabs" id="tabs">
+        <button data-tab="game" class="active">🎮 Spiel</button>
+        <button data-tab="players">👥 Spieler</button>
+        <button data-tab="tasks">📋 Aufgaben</button>
+        <button data-tab="settings">⚙️ Einstellungen</button>
+      </nav>
+      <div id="tab-game" class="tab"></div>
+      <div id="tab-players" class="tab hidden"></div>
+      <div id="tab-tasks" class="tab hidden">
+        <form id="task-form" class="card">
+          <h3>Neue Aufgabe</h3>
+          <div class="form-grid">
+            <input name="name" maxlength="60" placeholder="Aufgabe, z. B. Kabel verbinden" required>
+            <input name="location" maxlength="40" placeholder="Ort, z. B. Küche">
+            <input name="code" maxlength="12" placeholder="Code (optional)">
+            <button class="btn primary" type="submit">➕ Hinzufügen</button>
+          </div>
+          <p class="hint">Mit Code: Lege am Aufgabenort einen Zettel mit dem Code aus. Spieler müssen ihn eingeben, um die Aufgabe abzuhaken.</p>
+        </form>
+        <div id="task-list"></div>
+      </div>
+      <div id="tab-settings" class="tab hidden"></div>
+      <form id="announce-form" class="card announce">
+        <h3>📢 Nachricht an alle Geräte</h3>
+        <div class="row">
+          <input name="text" maxlength="200" placeholder="z. B. Noch 5 Minuten!" required>
+          <button class="btn primary" type="submit">Senden</button>
+        </div>
+      </form>
+    </section>
+  </main>
+  <div id="overlay"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/moderator.js"></script>
+</body>
+</html>

@@ -26,6 +26,11 @@ Ein Gerät (Laptop/PC) startet den Server, alle anderen Handys/Tablets verbinden
 - **Einstellungen**: Anzahl Impostor, Aufgaben pro Spieler, Kill-Cooldown, Verzögerung bis zum Tod,
   Diskussions-/Abstimmungszeit, Notfall-Meetings, anonyme Abstimmung, Rauswurf bestätigen,
   Sabotagen pro Runde, Anzahl ausgeloster Reparierer, Sabotage-Zeiten …
+- **Demomodus**: Zum Ausprobieren oder Vorführen bekommen alle Platzhalter („Demo-Aufgabe 1“ …)
+  statt der echten Aufgaben – auch bei der Reaktor-Reparatur. Alle Geräte zeigen ein DEMO-Abzeichen.
+- **Meetings mit Sammelphase**: Nach dem Einberufen zeigen alle Handys „Alle zum Treffpunkt!“. Die
+  Diskussion (und ihr Countdown) startet erst, wenn der Spielleiter „Diskussion starten“ tippt.
+  Abschaltbar in den Einstellungen.
 - Live-Übersicht: wer lebt, Rollen, Aufgaben-Fortschritt, Abstimmungen, Kill-Cooldowns
 - Meetings einberufen/weiterschalten, Spieler tot/lebendig setzen, Sabotage beenden, Spiel beenden
 - 📢 Nachrichten an alle Geräte, 📱 QR-Code zum Beitreten
@@ -85,8 +90,8 @@ Eigener PIN oder Port: `MOD_PIN=1234 PORT=8080 npm start`
 5. **Impostor** „töten" durch Antippen der Schulter und wählen danach im geheimen Bereich das Opfer
    aus der Liste – oder das Opfer drückt selbst *Ich wurde getötet*. Ist eine Verzögerung eingestellt,
    stirbt das Opfer erst nach dieser Zeit (sein Handy meldet es dann). Opfer bleiben liegen.
-6. Wer eine Leiche findet, drückt **Leiche melden** → alle Handys klingeln → Treffen am Treffpunkt,
-   diskutieren, abstimmen.
+6. Wer eine Leiche findet, drückt **Leiche melden** → alle Handys klingeln → alle kommen zum
+   Treffpunkt → der Spielleiter startet die Diskussion → diskutieren, abstimmen.
 7. **Crew gewinnt**, wenn alle Aufgaben erledigt oder alle Impostor rausgeworfen sind.
    **Impostor gewinnen**, wenn sie so viele sind wie die Crew oder die Sabotage nicht rechtzeitig
    repariert wird. Bei einer Sabotage werden zufällig Crewmates ausgelost (Standard: 2). Jeder bekommt

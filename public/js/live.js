@@ -122,6 +122,7 @@ function render() {
   const phaseLabel = { lobby: 'Lobby', playing: 'Spiel läuft', meeting: 'Meeting', ended: 'Spiel beendet' }[state.phase];
   setHTML($('#live-badges'), `
     <span class="badge ${state.phase}">${phaseLabel}</span>
+    ${state.settings.demoMode ? '<span class="badge demo">DEMO</span>' : ''}
     ${state.startedAt && state.phase !== 'lobby'
       ? `<span class="badge clock">⏱ ${state.endedAt ? clock(state.endedAt - state.startedAt) : `<span data-since="${state.startedAt}">${clock(serverNow() - state.startedAt)}</span>`}</span>`
       : ''}`);
@@ -363,7 +364,7 @@ function renderMeeting() {
   const body = m.bodyId ? playerById(m.bodyId) : null;
   const alive = participants().filter((p) => p.alive);
   const votedCount = m.votedIds.length;
-  const stageText = { discussion: 'Diskussion', voting: 'Abstimmung', result: 'Ergebnis' }[m.stage];
+  const stageText = { gathering: 'Sammeln', discussion: 'Diskussion', voting: 'Abstimmung', result: 'Ergebnis' }[m.stage];
   let result = '';
   if (m.stage === 'result') {
     const ej = m.result.ejectedId ? playerById(m.result.ejectedId) : null;
@@ -383,7 +384,8 @@ function renderMeeting() {
       </div>
       <div class="meeting-timer">
         <span>${stageText}</span>
-        <b>${countdown(m.endsAt)}</b>
+        <b>${m.endsAt ? countdown(m.endsAt) : '🏃'}</b>
+        ${m.stage === 'gathering' ? '<small>Wartet auf den Spielleiter</small>' : ''}
         ${m.stage === 'voting' ? `<small>${votedCount}/${alive.length} haben abgestimmt</small>` : ''}
       </div>
     </div>
@@ -391,7 +393,8 @@ function renderMeeting() {
     <div class="live-grid meeting-grid">
       <section class="panel">
         <h2>Abstimmung ${!secret && m.stage === 'voting' ? '<small>(Stimmen werden am Ende gezeigt)</small>' : ''}</h2>
-        ${m.stage === 'discussion' ? `<p class="empty big">Diskutiert! Die Abstimmung beginnt in ${countdown(m.endsAt)}.</p>` : voteBars(m)}
+        ${m.stage === 'gathering' ? '<p class="empty big">🏃 Alle zum Treffpunkt! Die Diskussion startet, sobald alle da sind.</p>'
+          : m.stage === 'discussion' ? `<p class="empty big">Diskutiert! Die Abstimmung beginnt in ${countdown(m.endsAt)}.</p>` : voteBars(m)}
       </section>
       <section class="panel">
         <h2>Nicht mehr dabei</h2>

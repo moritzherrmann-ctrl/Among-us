@@ -57,7 +57,20 @@ const DEFAULT_SETTINGS = {
   sabotageCooldown: 90, // Sekunden
   sabotageFixesNeeded: 2, // so viele zufällig ausgeloste Crewmates müssen reparieren
   sabotagesPerRound: 2, // wie oft pro Runde sabotiert werden darf
+  manualMeetingStart: true, // Meeting beginnt mit Sammeln, der Spielleiter startet die Diskussion
+  demoMode: false, // Platzhalter statt echter Aufgaben, damit eine Proberunde nichts verrät
 };
+
+/** Platzhalter-Aufgaben für den Demomodus */
+function demoTask(i) {
+  return {
+    id: `demo-${i + 1}`,
+    name: `Demo-Aufgabe ${i + 1}`,
+    location: 'beliebig',
+    description: 'Demomodus: Die echten Aufgaben bleiben geheim. Einfach abhaken.',
+    code: '',
+  };
+}
 
 const SETTING_LIMITS = {
   impostors: [1, 5],
@@ -315,7 +328,10 @@ class Game {
     if (impostors * 2 >= chosen.length) {
       throw new GameError(`Für ${impostors} Impostor braucht ihr mindestens ${impostors * 2 + 1} Spieler.`);
     }
-    const enabledTasks = this.taskCatalog.filter((t) => t.enabled);
+    const demo = this.settings.demoMode;
+    const enabledTasks = demo
+      ? Array.from({ length: this.settings.tasksPerPlayer }, (_, i) => demoTask(i))
+      : this.taskCatalog.filter((t) => t.enabled);
     if (enabledTasks.length === 0) throw new GameError('Mindestens eine Aufgabe muss aktiv sein.');
     const fixed = chosen.filter((p) => this.fixedImpostors.has(p.id));
     if (fixed.length > impostors) {
@@ -492,18 +508,29 @@ class Game {
       this.logEvent(now, 'dead', `Ebenfalls tot: ${others.map((p) => p.name).join(', ')}`, { players: others.map((p) => p.id) });
     }
 
-    const discussion = this.settings.discussionTime;
     this.meeting = {
       id: id(),
       type: body ? 'report' : 'emergency',
       callerId: caller ? caller.id : null,
       bodyId: body ? body.id : null,
-      stage: discussion > 0 ? 'discussion' : 'voting',
-      endsAt: now + (discussion > 0 ? discussion : this.settings.votingTime) * 1000,
+      stage: 'gathering',
+      endsAt: null, // Sammeln hat kein Zeitlimit
       votes: {},
       result: null,
     };
     this.phase = 'meeting';
+    if (!this.settings.manualMeetingStart) this.startDiscussion(now);
+  }
+
+  /** Alle sind am Treffpunkt: Diskussion (oder direkt Abstimmung) beginnt. */
+  startDiscussion(now) {
+    const discussion = this.settings.discussionTime;
+    if (discussion > 0) {
+      this.meeting.stage = 'discussion';
+      this.meeting.endsAt = now + discussion * 1000;
+    } else {
+      this.startVoting(now);
+    }
   }
 
   vote(voterId, targetId, now) {
@@ -525,7 +552,8 @@ class Game {
   advanceMeeting(now) {
     const m = this.meeting;
     if (this.phase !== 'meeting' || !m) throw new GameError('Kein Meeting aktiv.');
-    if (m.stage === 'discussion') this.startVoting(now);
+    if (m.stage === 'gathering') this.startDiscussion(now);
+    else if (m.stage === 'discussion') this.startVoting(now);
     else if (m.stage === 'voting') this.finishVoting(now);
     else this.endMeeting(now);
   }
@@ -614,7 +642,9 @@ class Game {
     if (!assigned.length) throw new GameError('Niemand da, der reparieren könnte.');
     // Jeder Reparierer bekommt eine zufällige Aufgabe aus dem Katalog (möglichst verschiedene).
     const pool = this.taskCatalog.filter((t) => t.enabled);
-    const catalog = pool.length ? pool : this.taskCatalog;
+    const catalog = this.settings.demoMode
+      ? assigned.map((_, i) => ({ ...demoTask(i), name: `Demo-Reparatur ${i + 1}` }))
+      : pool.length ? pool : this.taskCatalog;
     const picked = shuffle(catalog);
     const tasks = {};
     assigned.forEach((pid, i) => {
@@ -705,7 +735,7 @@ class Game {
       this.end('impostors', 'Die Sabotage wurde nicht rechtzeitig repariert!', now);
       return true;
     }
-    if (this.phase === 'meeting' && this.meeting && now >= this.meeting.endsAt) {
+    if (this.phase === 'meeting' && this.meeting && this.meeting.endsAt && now >= this.meeting.endsAt) {
       const stage = this.meeting.stage;
       if (stage === 'discussion') this.startVoting(now);
       else if (stage === 'voting') this.finishVoting(now);

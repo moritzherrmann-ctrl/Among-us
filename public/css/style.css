@@ -479,3 +479,5 @@ textarea:focus { border-color: var(--primary); }
 @media (max-width: 640px) {
   .form-grid .btn { order: 1; }
 }
+
+.badge.demo { background: #7b4dff; color: #fff; letter-spacing: 0.08em; font-size: 0.7rem; vertical-align: 0.15em; }

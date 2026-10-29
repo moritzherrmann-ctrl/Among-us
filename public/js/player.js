@@ -74,6 +74,9 @@ function detectEvents(prev, next) {
     sounds.meeting();
     closeModal();
   }
+  // Spielleiter hat die Diskussion gestartet
+  if (prev && prev.meeting && next.meeting && prev.meeting.id === next.meeting.id
+    && prev.meeting.stage === 'gathering' && next.meeting.stage !== 'gathering') sounds.notify();
   if (next.sabotage && (!prev || !prev.sabotage || prev.sabotage.id !== next.sabotage.id)) sounds.sabotage();
   // Ausgelost (auch als Ersatz für einen gestorbenen Reparierer)
   if (me.mustFix && (!prev || !prev.me || !prev.me.mustFix)) {
@@ -138,7 +141,7 @@ function renderHeader(me) {
   setHTML($('#me-header'), `
     ${crewmate(colorOf(me), { dead: !me.alive && !!me.role, size: 44 })}
     <div class="me-info">
-      <div class="me-name">${esc(me.name)}</div>
+      <div class="me-name">${esc(me.name)} ${state.settings.demoMode ? '<span class="badge demo">DEMO</span>' : ''}</div>
       <div class="me-status">${esc(status)}</div>
     </div>
     ${state.phase === 'lobby' ? '<button class="btn small secondary" data-action="rename">✏️</button>' : ''}`);
@@ -318,9 +321,13 @@ function renderMeeting(me, m) {
   const voted = new Set(m.votedIds);
 
   let content = '';
-  if (m.stage === 'discussion') {
+  if (m.stage === 'gathering') {
+    content = `<p class="stage">🏃 Alle zum Treffpunkt!</p>
+      <p class="hint">Die Diskussion beginnt, sobald alle da sind und der Spielleiter sie startet.</p>
+      ${playerChips(participants)}`;
+  } else if (m.stage === 'discussion') {
     content = `<p class="stage">Diskussion – Abstimmung in ${countdown(m.endsAt)}</p>
-      <p class="hint">Alle zum Treffpunkt! Besprecht, was ihr gesehen habt.</p>
+      <p class="hint">Besprecht, was ihr gesehen habt.</p>
       ${playerChips(participants)}`;
   } else if (m.stage === 'voting') {
     content = `<p class="stage">Abstimmung – noch ${countdown(m.endsAt)}</p>

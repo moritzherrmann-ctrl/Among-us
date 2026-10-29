@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { Game, GameError } = require('../src/game');
 
 function setup(n = 5, settings = {}) {
-  const game = new Game({ settings: { discussionTime: 10, votingTime: 20, resultTime: 5, ...settings } });
+  const game = new Game({ settings: { discussionTime: 10, votingTime: 20, resultTime: 5, manualMeetingStart: false, ...settings } });
   const players = [];
   for (let i = 0; i < n; i++) players.push(game.join(`P${i}`));
   return { game, players };
@@ -281,4 +281,39 @@ test('Standard-Aufgaben: 17 neue Aufgaben, Zurücksetzen ersetzt den Katalog', (
   assert.ok(!game.taskCatalog.some((t) => t.name === 'Alt'));
   assert.ok(game.taskCatalog.every((t) => t.name && t.description && t.enabled));
   assert.equal(new Set(game.taskCatalog.map((t) => t.id)).size, 17);
+});
+
+test('Meeting: Sammelphase ohne Zeitlimit, Diskussion startet erst durch den Spielleiter', () => {
+  const { game, crew } = started(5, { manualMeetingStart: true, discussionTime: 30 });
+  game.callMeeting(crew[0].id, null, 1000);
+  assert.equal(game.meeting.stage, 'gathering');
+  assert.equal(game.meeting.endsAt, null);
+  assert.equal(game.tick(10 * 60 * 1000), false); // bleibt beliebig lange beim Sammeln
+  assert.equal(game.meeting.stage, 'gathering');
+  assert.throws(() => game.vote(crew[0].id, 'skip', 2000), /nicht abgestimmt/);
+  game.advanceMeeting(700_000);
+  assert.equal(game.meeting.stage, 'discussion');
+  assert.equal(game.meeting.endsAt, 730_000);
+  game.tick(730_000);
+  assert.equal(game.meeting.stage, 'voting');
+});
+
+test('Meeting: ohne Diskussionszeit geht es nach dem Sammeln direkt zur Abstimmung', () => {
+  const { game, crew } = started(5, { manualMeetingStart: true, discussionTime: 0 });
+  game.callMeeting(crew[0].id, null, 0);
+  game.advanceMeeting(5000);
+  assert.equal(game.meeting.stage, 'voting');
+});
+
+test('Demomodus: Platzhalter statt echter Aufgaben, auch bei der Reparatur', () => {
+  const { game, players, impostors } = started(5, { demoMode: true, tasksPerPlayer: 3, sabotageCooldown: 0 });
+  const real = new Set(game.taskCatalog.map((t) => t.name));
+  for (const p of players) {
+    assert.equal(p.tasks.length, 3);
+    assert.ok(p.tasks.every((t) => t.name.startsWith('Demo-Aufgabe') && !real.has(t.name)));
+  }
+  const view = JSON.stringify(game.viewFor(players[0].id, 0));
+  assert.ok(![...real].some((n) => view.includes(n)));
+  game.startSabotage(impostors[0].id, 0);
+  assert.ok(Object.values(game.sabotage.tasks).every((t) => t.name.startsWith('Demo-Reparatur') && !t.code));
 });

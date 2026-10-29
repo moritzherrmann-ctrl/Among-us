@@ -21,6 +21,8 @@ const SETTINGS = [
   ['sabotageCooldown', 'Sabotage-Cooldown (Sek.)'],
   ['sabotagesPerRound', 'Sabotagen pro Runde'],
   ['sabotageFixesNeeded', 'Reparierer (zufällig ausgelost)'],
+  ['manualMeetingStart', 'Spielleiter startet die Diskussion (erst sammeln)'],
+  ['demoMode', 'Demomodus (Platzhalter statt echter Aufgaben)'],
 ];
 
 const PHASES = {
@@ -76,7 +78,7 @@ const playerById = (id) => state.players.find((p) => p.id === id);
 function render() {
   if (!loggedIn || !state) return;
   const [label, cls] = PHASES[state.phase];
-  setHTML($('#phase-badge'), `<span class="badge ${cls}">${label}</span>`);
+  setHTML($('#phase-badge'), `<span class="badge ${cls}">${label}</span> ${state.settings.demoMode ? '<span class="badge demo">DEMO</span>' : ''}`);
   setHTML($('#tab-game'), renderGame());
   setHTML($('#tab-players'), renderPlayers());
   setHTML($('#task-list'), renderTasks());
@@ -137,7 +139,7 @@ function renderRunning() {
   if (m) {
     const caller = m.callerId ? playerById(m.callerId) : null;
     const body = m.bodyId ? playerById(m.bodyId) : null;
-    const stageText = { discussion: 'Diskussion', voting: 'Abstimmung', result: 'Ergebnis' }[m.stage];
+    const stageText = { gathering: 'Sammeln', discussion: 'Diskussion', voting: 'Abstimmung', result: 'Ergebnis' }[m.stage];
     const voteRows = participants.filter((p) => p.alive || m.votes[p.id]).map((p) => {
       const v = m.votes[p.id];
       return `<li>${esc(p.name)} → ${v ? (v === 'skip' ? '⏭ Überspringen' : esc(playerById(v)?.name || '?')) : '<i>noch nicht</i>'}</li>`;
@@ -150,10 +152,11 @@ function renderRunning() {
     meeting = `<div class="card meeting-card">
       <h2>${m.type === 'report' ? '🚨 Leiche gemeldet' : '📣 Notfall-Meeting'}</h2>
       <p>${caller ? `von <b>${esc(caller.name)}</b>` : 'vom Moderator'}${body ? ` – Leiche: <b>${esc(body.name)}</b>` : ''}</p>
-      <p class="stage">${stageText} – ${countdown(m.endsAt)}</p>
+      <p class="stage">${m.stage === 'gathering' ? '🏃 Sammeln – alle kommen zum Treffpunkt' : `${stageText} – ${countdown(m.endsAt)}`}</p>
+      ${m.stage === 'gathering' ? '<p class="hint">Die Handys zeigen „Alle zum Treffpunkt!“. Starte die Diskussion, sobald alle da sind.</p>' : ''}
       ${result}
       <ul class="votes">${voteRows}</ul>
-      <button class="btn primary" data-action="advance">⏩ ${m.stage === 'discussion' ? 'Abstimmung starten' : m.stage === 'voting' ? 'Abstimmung beenden' : 'Meeting beenden'}</button>
+      <button class="btn primary ${m.stage === 'gathering' ? 'big' : ''}" data-action="advance">${m.stage === 'gathering' ? '▶️ Alle da – Diskussion starten' : `⏩ ${m.stage === 'discussion' ? 'Abstimmung starten' : m.stage === 'voting' ? 'Abstimmung beenden' : 'Meeting beenden'}`}</button>
     </div>`;
   }
 

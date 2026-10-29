@@ -219,3 +219,40 @@ test('Live-Board: Ereignisse, Meeting-Verlauf und Fortschritt werden protokollie
   assert.equal(view.events.length, 5);
   assert.equal(view.meetingHistory.length, 1);
 });
+
+test('Sabotage: jeder Reparierer bekommt eine eigene zufällige Aufgabe aus dem Katalog, Code wird geprüft', () => {
+  const game = new Game({
+    settings: { sabotageCooldown: 0 },
+    tasks: [
+      { name: 'Kabel', location: 'Flur', code: 'K1' },
+      { name: 'Müll', location: 'Küche' },
+      { name: 'Aus', location: 'Keller', enabled: false },
+    ],
+  });
+  const ps = ['a', 'b', 'c', 'd', 'e'].map((n) => game.join(n));
+  game.start(0);
+  const imp = ps.find((p) => p.role === 'impostor');
+  game.startSabotage(imp.id, 0);
+  const s = game.sabotage;
+  const names = s.assigned.map((id) => s.tasks[id].name).sort();
+  assert.deepEqual(names, ['Kabel', 'Müll']); // verschieden, nur aktive Aufgaben
+  const view = game.viewFor(s.assigned[0], 0);
+  assert.ok(!JSON.stringify(view.sabotage).includes('K1')); // Code wird nicht verraten
+  const withCode = s.assigned.find((id) => s.tasks[id].code);
+  const without = s.assigned.find((id) => !s.tasks[id].code);
+  assert.throws(() => game.fixSabotage(withCode, 1, 'falsch'), /Falscher Code/);
+  game.fixSabotage(without, 1);
+  game.fixSabotage(withCode, 2, 'k1');
+  assert.equal(game.sabotage, null);
+});
+
+test('Sabotage: Ersatz-Reparierer übernimmt die Aufgabe des Gestorbenen', () => {
+  const { game, impostors } = started(6, { sabotageCooldown: 0 });
+  game.startSabotage(impostors[0].id, 0);
+  const [first] = game.sabotage.assigned;
+  const task = game.sabotage.tasks[first];
+  game.reportOwnDeath(first, 1);
+  const replacement = game.sabotage.assigned.find((id) => !(id in game.sabotage.tasks) || game.sabotage.tasks[id] === task);
+  assert.equal(game.sabotage.tasks[replacement], task);
+  assert.ok(!(first in game.sabotage.tasks));
+});

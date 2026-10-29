@@ -78,8 +78,10 @@ Eigener PIN oder Port: `MOD_PIN=1234 PORT=8080 npm start`
    diskutieren, abstimmen.
 7. **Crew gewinnt**, wenn alle Aufgaben erledigt oder alle Impostor rausgeworfen sind.
    **Impostor gewinnen**, wenn sie so viele sind wie die Crew oder die Sabotage nicht rechtzeitig
-   repariert wird. Bei einer Sabotage werden zufällig Crewmates ausgelost (Standard: 2), nur sie
-   können am „Reaktor" auf *Reparieren* drücken. Stirbt einer davon, wird ein Ersatz ausgelost.
+   repariert wird. Bei einer Sabotage werden zufällig Crewmates ausgelost (Standard: 2). Jeder bekommt
+   eine zufällige Aufgabe aus dem Aufgabenkatalog, die er erledigen muss (mit Code, falls die Aufgabe
+   einen hat). Erst wenn alle ausgelosten ihre Aufgabe erledigt haben, ist der Reaktor repariert.
+   Stirbt einer davon, übernimmt ein neu ausgeloster Crewmate seine Aufgabe.
 
 ## Entwicklung
 

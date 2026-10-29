@@ -298,7 +298,9 @@ function sabotageBanner() {
   if (!s) return '';
   const fixers = s.assigned.map((id) => {
     const p = playerById(id);
-    return p ? `<span class="fixer ${s.fixedBy.includes(id) ? 'done' : ''}">${crewmate(colorOf(p), { size: 26 })}${esc(p.name)} ${s.fixedBy.includes(id) ? '✅' : '⏳'}</span>` : '';
+    const t = s.tasks[id];
+    return p ? `<span class="fixer ${s.fixedBy.includes(id) ? 'done' : ''}">${crewmate(colorOf(p), { size: 26 })}
+      <span>${esc(p.name)} ${s.fixedBy.includes(id) ? '✅' : '⏳'}${t ? `<small>${esc(t.name)}${t.location ? ` · 📍 ${esc(t.location)}` : ''}</small>` : ''}</span></span>` : '';
   }).join('');
   return `<div class="live-sabotage">
     <span>☢️ REAKTOR-KERNSCHMELZE</span>

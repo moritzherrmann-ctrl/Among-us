@@ -444,3 +444,9 @@ a.btn { text-decoration: none; text-align: center; }
 .fixer.done { background: #1e8e4e88; }
 .pending-kills { list-style: none; padding: 0; margin: 4px 0 10px; display: grid; gap: 4px; }
 .pending-kills li { background: #0006; padding: 8px 12px; border-radius: 10px; }
+.fixer > span { display: grid; text-align: left; line-height: 1.25; }
+.fixer small { color: inherit; opacity: 0.85; font-weight: 500; }
+.repair-task { background: #0006; border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; }
+.repair-task p { margin: 4px 0; }
+.repair-task h3 { color: #fff; text-transform: none; letter-spacing: 0; font-size: 1.3rem; margin: 4px 0; }
+.repair-list { margin: 0 0 10px; padding-left: 20px; text-align: left; }

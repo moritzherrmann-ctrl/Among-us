@@ -207,11 +207,18 @@ function renderSabotage(me) {
   const fixers = s.assigned.map((id) => {
     const p = playerById(id);
     const done = s.fixedBy.includes(id);
-    return p ? `<span class="fixer ${done ? 'done' : ''}">${crewmate(colorOf(p), { size: 24 })}${esc(p.name)} ${done ? '✅' : '⏳'}</span>` : '';
+    const t = s.tasks[id];
+    return p ? `<div class="fixer ${done ? 'done' : ''}">${crewmate(colorOf(p), { size: 24 })}
+      <span><span><b>${esc(p.name)}</b> ${done ? '✅' : '⏳'}</span>${t ? `<small>${esc(t.name)}${t.location ? ` · 📍 ${esc(t.location)}` : ''}</small>` : ''}</span></div>` : '';
   }).join('');
   let action = '';
   if (me && me.mustFix && me.alive) {
-    action = '<p><b>Du bist ausgelost!</b></p><button class="btn danger big" data-action="fix">🔧 Reaktor reparieren</button>';
+    const t = s.tasks[me.id];
+    action = `<div class="repair-task">
+        <p>Du bist ausgelost! Deine Reparatur-Aufgabe:</p>
+        ${t ? `<h3>${esc(t.name)}</h3>${t.location ? `<p>📍 ${esc(t.location)}</p>` : ''}` : ''}
+      </div>
+      <button class="btn danger big" data-action="fix">🔧 ${t ? 'Aufgabe erledigt – reparieren' : 'Reaktor reparieren'}</button>`;
   } else if (me && me.hasFixed) {
     action = '<p><b>Du hast repariert ✅ – jetzt muss noch der andere!</b></p>';
   } else if (me && me.role) {
@@ -220,7 +227,7 @@ function renderSabotage(me) {
   return `<div class="card sabotage">
     <h2>⚠️ REAKTOR-KERNSCHMELZE ⚠️</h2>
     <p class="huge">${countdown(s.endsAt)}</p>
-    <p>Diese Spieler müssen am Reaktor reparieren (${s.fixes}/${s.needed}):</p>
+    <p>Diese Spieler müssen ihre Reparatur-Aufgabe erledigen (${s.fixes}/${s.needed}):</p>
     <div class="fixers">${fixers}</div>
     ${action}
   </div>`;
@@ -436,7 +443,7 @@ async function onAction(btn) {
       }
       break;
     case 'fix':
-      send('sabotage:fix').then((r) => r.ok && sounds.task());
+      repairReactor(state.sabotage && state.sabotage.tasks[me.id]);
       break;
     case 'vote': {
       const target = btn.dataset.target;
@@ -472,6 +479,30 @@ function completeTask(task) {
   };
   modal.querySelector('#task-ok').addEventListener('click', submit);
   modal.querySelector('#task-code')?.addEventListener('keydown', (e) => e.key === 'Enter' && submit());
+}
+
+function repairReactor(task) {
+  const fix = async (code) => {
+    const res = await send('sabotage:fix', { code });
+    if (res.ok) {
+      closeModal();
+      sounds.task();
+      toast('Repariert! ✅', 'success');
+    }
+  };
+  if (!task || !task.needsCode) return fix('');
+  const modal = openModal(`
+    <h2>🔧 ${esc(task.name)}</h2>
+    ${task.location ? `<p>📍 ${esc(task.location)}</p>` : ''}
+    <p>Gib den Code ein, den du am Aufgabenort findest:</p>
+    <input id="repair-code" autocomplete="off" autocapitalize="characters" placeholder="Code">
+    <div class="row">
+      <button class="btn secondary" data-close>Abbrechen</button>
+      <button class="btn danger" id="repair-ok">Reparieren</button>
+    </div>`, { onOpen: (m) => m.querySelector('#repair-code').focus() });
+  const submit = () => fix(modal.querySelector('#repair-code').value);
+  modal.querySelector('#repair-ok').addEventListener('click', submit);
+  modal.querySelector('#repair-code').addEventListener('keydown', (e) => e.key === 'Enter' && submit());
 }
 
 function pickPlayer(title, players, okText, onPick) {

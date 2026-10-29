@@ -159,7 +159,11 @@ function renderRunning() {
 
   const sabotage = s ? `<div class="card sabotage">
       <h2>☢️ Sabotage aktiv – ${countdown(s.endsAt)}</h2>
-      <p>Ausgelost (${s.fixes}/${s.needed} repariert): ${s.assigned.map((id) => `<b>${esc(playerById(id)?.name || '?')}</b> ${s.fixedBy.includes(id) ? '✅' : '⏳'}`).join(' · ')}</p>
+      <p>Ausgelost (${s.fixes}/${s.needed} repariert):</p>
+      <ul class="repair-list">${s.assigned.map((id) => {
+        const t = s.tasks[id];
+        return `<li><b>${esc(playerById(id)?.name || '?')}</b> ${s.fixedBy.includes(id) ? '✅' : '⏳'}${t ? ` – ${esc(t.name)}${t.location ? ` (📍 ${esc(t.location)})` : ''}` : ''}</li>`;
+      }).join('')}</ul>
       <button class="btn secondary" data-action="end-sabotage">Sabotage beenden</button>
     </div>` : '';
 

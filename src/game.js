@@ -398,8 +398,11 @@ class Game {
     if (s && s.assigned.includes(p.id) && !s.fixedBy.includes(p.id)) {
       const replacement = shuffle(this.participants().filter((o) => o.alive && o.role === 'crewmate' && !s.assigned.includes(o.id)))[0];
       s.assigned = s.assigned.filter((pid) => pid !== p.id);
+      const task = s.tasks[p.id];
+      delete s.tasks[p.id];
       if (replacement) {
         s.assigned.push(replacement.id);
+        s.tasks[replacement.id] = task; // Ersatz übernimmt dieselbe Reparatur-Aufgabe
         this.logEvent(now, 'sabotage', `${replacement.name} übernimmt die Reparatur für ${p.name}`, { players: [replacement.id, p.id] });
       }
       s.needed = s.assigned.length;
@@ -591,21 +594,34 @@ class Game {
     const candidates = this.participants().filter((p) => p.alive && p.role === 'crewmate');
     const assigned = shuffle(candidates).slice(0, this.settings.sabotageFixesNeeded).map((p) => p.id);
     if (!assigned.length) throw new GameError('Niemand da, der reparieren könnte.');
+    // Jeder Reparierer bekommt eine zufällige Aufgabe aus dem Katalog (möglichst verschiedene).
+    const pool = this.taskCatalog.filter((t) => t.enabled);
+    const catalog = pool.length ? pool : this.taskCatalog;
+    const picked = shuffle(catalog);
+    const tasks = {};
+    assigned.forEach((pid, i) => {
+      const t = picked.length ? picked[i % picked.length] : null;
+      tasks[pid] = t ? { name: t.name, location: t.location, code: t.code } : null;
+    });
     this.sabotagesUsed += 1;
     this.sabotage = {
       id: id(),
       startedAt: now,
       endsAt: now + this.settings.sabotageDuration * 1000,
       assigned,
+      tasks,
       fixedBy: [],
       needed: assigned.length,
     };
-    const names = assigned.map((pid) => this.players.get(pid).name).join(' & ');
+    const names = assigned.map((pid) => {
+      const t = tasks[pid];
+      return `${this.players.get(pid).name}${t ? ` (${t.name}${t.location ? `, ${t.location}` : ''})` : ''}`;
+    }).join(' & ');
     this.logEvent(now, 'sabotage', `Reaktor sabotiert! Reparieren müssen: ${names}`, { players: assigned });
     this.logEvent(now, 'sabotage-by', `Sabotage ausgelöst von ${imp.name}`, { secret: true, players: [imp.id] });
   }
 
-  fixSabotage(playerId, now) {
+  fixSabotage(playerId, now, code = '') {
     this.requirePlaying();
     const s = this.sabotage;
     if (!s) throw new GameError('Es gibt nichts zu reparieren.');
@@ -613,6 +629,10 @@ class Game {
     if (!p.role || !p.alive) throw new GameError('Nur lebende Spieler können reparieren.');
     if (!s.assigned.includes(p.id)) throw new GameError('Du bist nicht ausgelost – die ausgelosten Spieler müssen reparieren!');
     if (s.fixedBy.includes(p.id)) throw new GameError('Du hast schon repariert – jetzt ist der andere dran!');
+    const task = s.tasks[p.id];
+    if (task && task.code && cleanText(code, 12).toLowerCase() !== task.code.toLowerCase()) {
+      throw new GameError('Falscher Code. Schau nochmal am Aufgabenort nach!');
+    }
     s.fixedBy.push(p.id);
     if (s.fixedBy.length >= s.needed) this.finishRepair(now);
   }
@@ -737,6 +757,9 @@ class Game {
           // Wer repariert, ist für alle sichtbar – sonst wüsste niemand, wer zum Reaktor muss.
           assigned: this.sabotage.assigned,
           fixedBy: this.sabotage.fixedBy,
+          // Reparatur-Aufgabe je Spieler – ohne Code, der steht nur am Aufgabenort
+          tasks: Object.fromEntries(Object.entries(this.sabotage.tasks).map(([pid, t]) => [pid, t
+            ? { name: t.name, location: t.location, needsCode: !!t.code } : null])),
         }
         : null,
       sabotagesLeft: this.phase === 'lobby' ? this.settings.sabotagesPerRound : this.settings.sabotagesPerRound - this.sabotagesUsed,

@@ -135,7 +135,7 @@ io.on('connection', (socket) => {
   socket.on('meeting:call', handle(socket, requirePlayer(({ bodyId }, now) => game.callMeeting(playerId, bodyId || null, now))));
   socket.on('meeting:vote', handle(socket, requirePlayer(({ targetId }, now) => game.vote(playerId, targetId, now))));
   socket.on('sabotage:start', handle(socket, requirePlayer((_, now) => game.startSabotage(playerId, now))));
-  socket.on('sabotage:fix', handle(socket, requirePlayer((_, now) => game.fixSabotage(playerId, now))));
+  socket.on('sabotage:fix', handle(socket, requirePlayer(({ code }, now) => game.fixSabotage(playerId, now, code))));
 
   // --- Moderator ---
   socket.on('mod:login', handle(socket, ({ pin }) => {

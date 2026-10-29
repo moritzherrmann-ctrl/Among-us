@@ -438,3 +438,9 @@ input[type='checkbox'] { width: 22px; height: 22px; accent-color: var(--primary)
 .mod-header-actions { flex: none; gap: 6px; }
 .mod-header-actions > * { flex: none; }
 a.btn { text-decoration: none; text-align: center; }
+
+.fixers { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 8px 0 12px; }
+.fixer { display: inline-flex; align-items: center; gap: 6px; background: #0006; padding: 4px 12px 4px 6px; border-radius: 999px; font-weight: 700; }
+.fixer.done { background: #1e8e4e88; }
+.pending-kills { list-style: none; padding: 0; margin: 4px 0 10px; display: grid; gap: 4px; }
+.pending-kills li { background: #0006; padding: 8px 12px; border-radius: 10px; }

@@ -13,15 +13,18 @@ Ein Gerät (Laptop/PC) startet den Server, alle anderen Handys/Tablets verbinden
 - Eigene Aufgabenliste mit Ort, optional mit **Code-Prüfung** (Zettel am Aufgabenort)
 - Gemeinsamer Aufgaben-Fortschrittsbalken
 - 🚨 Leiche melden, 📣 Notfall-Meeting (begrenzt), 💀 „Ich wurde getötet"
-- Impostor: 🔪 Töten mit Cooldown, ☢️ Reaktor-Sabotage (alle Geräte schlagen Alarm)
+- Impostor: 🔪 Opfer aus einer Liste auswählen (mit Cooldown, optional stirbt das Opfer erst nach
+  einer einstellbaren Zeit), ☢️ Reaktor-Sabotage (alle Geräte schlagen Alarm, zufällig ausgeloste
+  Crewmates müssen reparieren)
 - Meetings mit Diskussion, Abstimmung (inkl. Überspringen) und Ergebnis
 - Alarmton + Vibration bei Meetings, Sabotage und Tod; Bildschirm bleibt an
 
 **Moderatoren-App** (`http://<IP>:3000/moderator`, mit PIN)
 - **Spielerauswahl**: wer spielt mit, Impostor fest einteilen, umbenennen, entfernen
 - **Aufgabenauswahl**: Katalog bearbeiten, Aufgaben an/aus, eigene Aufgaben mit Ort & Code anlegen
-- **Einstellungen**: Anzahl Impostor, Aufgaben pro Spieler, Kill-Cooldown, Diskussions-/Abstimmungszeit,
-  Notfall-Meetings, anonyme Abstimmung, Rauswurf bestätigen, Sabotage-Zeiten …
+- **Einstellungen**: Anzahl Impostor, Aufgaben pro Spieler, Kill-Cooldown, Verzögerung bis zum Tod,
+  Diskussions-/Abstimmungszeit, Notfall-Meetings, anonyme Abstimmung, Rauswurf bestätigen,
+  Sabotagen pro Runde, Anzahl ausgeloster Reparierer, Sabotage-Zeiten …
 - Live-Übersicht: wer lebt, Rollen, Aufgaben-Fortschritt, Abstimmungen, Kill-Cooldowns
 - Meetings einberufen/weiterschalten, Spieler tot/lebendig setzen, Sabotage beenden, Spiel beenden
 - 📢 Nachrichten an alle Geräte, 📱 QR-Code zum Beitreten
@@ -68,13 +71,15 @@ Eigener PIN oder Port: `MOD_PIN=1234 PORT=8080 npm start`
 2. Alle scannen den Code und treten mit ihrem Namen bei.
 3. Moderator wählt Spieler, Aufgaben und Regeln und drückt **Spiel starten**.
 4. Jeder sieht seine Rolle (Bildschirm verdecken!) und läuft zu seinen Aufgaben.
-5. **Impostor** „töten" durch Antippen der Schulter und drücken danach im geheimen Bereich auf
-   *Töten* – oder das Opfer drückt selbst *Ich wurde getötet*. Opfer bleiben liegen.
+5. **Impostor** „töten" durch Antippen der Schulter und wählen danach im geheimen Bereich das Opfer
+   aus der Liste – oder das Opfer drückt selbst *Ich wurde getötet*. Ist eine Verzögerung eingestellt,
+   stirbt das Opfer erst nach dieser Zeit (sein Handy meldet es dann). Opfer bleiben liegen.
 6. Wer eine Leiche findet, drückt **Leiche melden** → alle Handys klingeln → Treffen am Treffpunkt,
    diskutieren, abstimmen.
 7. **Crew gewinnt**, wenn alle Aufgaben erledigt oder alle Impostor rausgeworfen sind.
    **Impostor gewinnen**, wenn sie so viele sind wie die Crew oder die Sabotage nicht rechtzeitig
-   repariert wird (dafür müssen verschiedene Spieler am „Reaktor" auf *Reparieren* drücken).
+   repariert wird. Bei einer Sabotage werden zufällig Crewmates ausgelost (Standard: 2), nur sie
+   können am „Reaktor" auf *Reparieren* drücken. Stirbt einer davon, wird ein Ersatz ausgelost.
 
 ## Entwicklung
 

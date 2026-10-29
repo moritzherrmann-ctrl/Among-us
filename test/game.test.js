@@ -114,19 +114,71 @@ test('Gleichstand → niemand fliegt raus; Notfall-Meetings sind begrenzt', () =
   assert.throws(() => game.callMeeting(crew[0].id, null, 3), /keine Notfall-Meetings/);
 });
 
-test('Sabotage: zwei Reparaturen nötig, sonst gewinnen die Impostor', () => {
+test('Sabotage: nur die zwei ausgelosten Crewmates können reparieren, sonst gewinnen die Impostor', () => {
   const { game, impostors, crew } = started(5, { sabotageCooldown: 0, sabotageDuration: 30 });
   game.startSabotage(impostors[0].id, 0);
+  const s = game.sabotage;
+  assert.equal(s.assigned.length, 2);
+  assert.ok(s.assigned.every((id) => game.players.get(id).role === 'crewmate'));
   assert.throws(() => game.callMeeting(crew[0].id, null, 1), /Sabotage/);
-  game.fixSabotage(crew[0].id, 1);
-  assert.throws(() => game.fixSabotage(crew[0].id, 2), /anderer Spieler/);
-  game.fixSabotage(crew[1].id, 3);
+  const outsider = crew.find((p) => !s.assigned.includes(p.id));
+  assert.throws(() => game.fixSabotage(outsider.id, 1), /nicht ausgelost/);
+  game.fixSabotage(s.assigned[0], 1);
+  assert.throws(() => game.fixSabotage(s.assigned[0], 2), /schon repariert/);
+  game.fixSabotage(s.assigned[1], 3);
   assert.equal(game.sabotage, null);
 
   const ctx = started(5, { sabotageCooldown: 0, sabotageDuration: 30 });
   ctx.game.startSabotage(ctx.impostors[0].id, 0);
   ctx.game.tick(31_000);
   assert.equal(ctx.game.winner.team, 'impostors');
+});
+
+test('Sabotage: Anzahl pro Runde ist begrenzt', () => {
+  const { game, impostors } = started(5, { sabotageCooldown: 0, sabotagesPerRound: 1 });
+  game.startSabotage(impostors[0].id, 0);
+  game.endSabotage(1);
+  assert.throws(() => game.startSabotage(impostors[0].id, 2), /keine Sabotagen mehr/);
+  assert.equal(game.viewFor(impostors[0].id, 2).sabotagesLeft, 0);
+});
+
+test('Sabotage: stirbt ein ausgeloster Reparierer, übernimmt ein anderer', () => {
+  const { game, impostors } = started(6, { sabotageCooldown: 0 });
+  game.startSabotage(impostors[0].id, 0);
+  const [first] = game.sabotage.assigned;
+  game.reportOwnDeath(first, 1);
+  assert.equal(game.sabotage.assigned.length, 2);
+  assert.ok(!game.sabotage.assigned.includes(first));
+});
+
+test('Verzögerter Kill: Opfer stirbt erst nach der eingestellten Zeit, nicht während eines Meetings', () => {
+  const { game, impostors, crew } = started(6, { killCooldown: 0, killDelay: 20, discussionTime: 0 });
+  const imp = impostors[0];
+  game.kill(imp.id, crew[0].id, 1000);
+  assert.equal(crew[0].alive, true);
+  assert.throws(() => game.kill(imp.id, crew[0].id, 1000), /stirbt bereits/);
+  assert.deepEqual(game.viewFor(imp.id, 1000).me.pendingKills.map((k) => k.victimId), [crew[0].id]);
+  assert.deepEqual(game.viewFor(crew[0].id, 1000).me.pendingKills, []);
+  game.tick(20_000);
+  assert.equal(crew[0].alive, true);
+  // Meeting läuft, als die Zeit abläuft: Tod erst danach
+  game.callMeeting(crew[1].id, null, 20_500);
+  game.tick(22_000);
+  assert.equal(crew[0].alive, true);
+  game.advanceMeeting(22_000); // Abstimmung beenden
+  game.advanceMeeting(22_000); // Meeting beenden
+  game.tick(22_100);
+  assert.equal(crew[0].alive, false);
+  assert.equal(game.pendingKills.length, 0);
+});
+
+test('Verzögerter Kill entfällt, wenn das Opfer vorher rausgeworfen wird', () => {
+  const { game, impostors, crew } = started(6, { killCooldown: 0, killDelay: 30, discussionTime: 0 });
+  game.kill(impostors[0].id, crew[0].id, 0);
+  game.callMeeting(crew[1].id, null, 1);
+  for (const p of game.participants().filter((x) => x.alive)) game.vote(p.id, crew[0].id, 2);
+  assert.equal(crew[0].ejected, true);
+  assert.equal(game.pendingKills.length, 0);
 });
 
 test('Spieleransicht verrät keine fremden Rollen und keine unentdeckten Leichen', () => {

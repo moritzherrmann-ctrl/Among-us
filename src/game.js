@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS = {
   impostors: 1,
   tasksPerPlayer: 4,
   killCooldown: 30, // Sekunden
+  killDelay: 0, // Sekunden bis das Opfer nach dem Kill wirklich stirbt (0 = sofort)
   discussionTime: 60, // Sekunden
   votingTime: 60, // Sekunden
   resultTime: 8, // Sekunden, wie lange das Ergebnis angezeigt wird
@@ -49,13 +50,15 @@ const DEFAULT_SETTINGS = {
   sabotageEnabled: true,
   sabotageDuration: 60, // Sekunden bis zur Kernschmelze
   sabotageCooldown: 90, // Sekunden
-  sabotageFixesNeeded: 2, // verschiedene Crewmates müssen reparieren
+  sabotageFixesNeeded: 2, // so viele zufällig ausgeloste Crewmates müssen reparieren
+  sabotagesPerRound: 2, // wie oft pro Runde sabotiert werden darf
 };
 
 const SETTING_LIMITS = {
   impostors: [1, 5],
   tasksPerPlayer: [1, 20],
   killCooldown: [0, 600],
+  killDelay: [0, 600],
   discussionTime: [0, 600],
   votingTime: [10, 600],
   resultTime: [3, 60],
@@ -63,6 +66,7 @@ const SETTING_LIMITS = {
   sabotageDuration: [15, 600],
   sabotageCooldown: [0, 1200],
   sabotageFixesNeeded: [1, 5],
+  sabotagesPerRound: [1, 10],
 };
 
 const MAX_NAME = 20;
@@ -112,6 +116,8 @@ class Game {
     this.lastMeeting = null;
     this.sabotage = null;
     this.sabotageReadyAt = 0;
+    this.sabotagesUsed = 0;
+    this.pendingKills = []; // verzögerte Kills: { impostorId, victimId, at, diesAt }
     this.winner = null;
     this.startedAt = null;
     this.endedAt = null;
@@ -353,8 +359,15 @@ class Game {
     if (imp.role !== 'impostor' || !imp.alive) throw new GameError('Du kannst nicht töten.');
     if (now < imp.killReadyAt) throw new GameError('Dein Kill-Cooldown läuft noch.');
     if (!victim.role || !victim.alive || victim.role === 'impostor') throw new GameError('Ungültiges Opfer.');
-    this.markDead(victim, now);
+    if (this.pendingKills.some((k) => k.victimId === victim.id)) throw new GameError(`${victim.name} stirbt bereits bald.`);
     imp.killReadyAt = now + this.settings.killCooldown * 1000;
+    const delay = this.settings.killDelay;
+    if (delay > 0) {
+      this.pendingKills.push({ impostorId: imp.id, victimId: victim.id, at: now, diesAt: now + delay * 1000 });
+      this.logEvent(now, 'poison', `${imp.name} hat ${victim.name} erwischt – stirbt in ${delay} s`, { secret: true, players: [imp.id, victim.id] });
+      return;
+    }
+    this.markDead(victim, now);
     this.logEvent(now, 'kill', `${imp.name} hat ${victim.name} getötet`, { secret: true, players: [imp.id, victim.id] });
     this.checkWin(now);
   }
@@ -374,6 +387,42 @@ class Game {
     p.alive = false;
     p.diedAt = now;
     p.bodyReported = false;
+    this.afterDeath(p, now);
+  }
+
+  /** Aufräumen, wenn jemand stirbt oder rausgeworfen wird. */
+  afterDeath(p, now) {
+    this.pendingKills = this.pendingKills.filter((k) => k.victimId !== p.id);
+    // Stirbt ein ausgeloster Reparierer, übernimmt ein anderer lebender Crewmate.
+    const s = this.sabotage;
+    if (s && s.assigned.includes(p.id) && !s.fixedBy.includes(p.id)) {
+      const replacement = shuffle(this.participants().filter((o) => o.alive && o.role === 'crewmate' && !s.assigned.includes(o.id)))[0];
+      s.assigned = s.assigned.filter((pid) => pid !== p.id);
+      if (replacement) {
+        s.assigned.push(replacement.id);
+        this.logEvent(now, 'sabotage', `${replacement.name} übernimmt die Reparatur für ${p.name}`, { players: [replacement.id, p.id] });
+      }
+      s.needed = s.assigned.length;
+      if (s.needed === 0 || s.fixedBy.length >= s.needed) this.finishRepair(now);
+    }
+  }
+
+  /** Verzögerte Kills auslösen, deren Zeit abgelaufen ist (nur während des Spiels, nicht im Meeting). */
+  resolvePendingKills(now) {
+    if (this.phase !== 'playing') return false;
+    const due = this.pendingKills.filter((k) => k.diesAt <= now);
+    if (!due.length) return false;
+    for (const k of due) {
+      const victim = this.players.get(k.victimId);
+      this.pendingKills = this.pendingKills.filter((x) => x !== k);
+      if (!victim || !victim.alive) continue;
+      this.markDead(victim, now);
+      const imp = this.players.get(k.impostorId);
+      this.logEvent(now, 'kill', `${victim.name} ist gestorben${imp ? ` (Kill von ${imp.name})` : ''}`, { secret: true, players: [victim.id] });
+      if (this.phase !== 'playing') break;
+    }
+    this.checkWin(now);
+    return true;
   }
 
   /** Moderator setzt Lebend/Tot manuell (z. B. bei Fehlbedienung). */
@@ -489,6 +538,7 @@ class Game {
         ejected.ejected = true;
         ejected.bodyReported = true;
         ejected.diedAt = now;
+        this.afterDeath(ejected, now);
       }
     }
     m.stage = 'result';
@@ -535,15 +585,23 @@ class Game {
     const imp = this.getPlayer(impostorId);
     if (imp.role !== 'impostor') throw new GameError('Nur Impostor können sabotieren.');
     if (this.sabotage) throw new GameError('Es läuft bereits eine Sabotage.');
+    if (this.sabotagesUsed >= this.settings.sabotagesPerRound) throw new GameError('Diese Runde sind keine Sabotagen mehr übrig.');
     if (now < this.sabotageReadyAt) throw new GameError('Sabotage ist noch nicht bereit.');
+    // Zufällig ausgeloste Crewmates müssen reparieren (Impostor werden nie ausgelost).
+    const candidates = this.participants().filter((p) => p.alive && p.role === 'crewmate');
+    const assigned = shuffle(candidates).slice(0, this.settings.sabotageFixesNeeded).map((p) => p.id);
+    if (!assigned.length) throw new GameError('Niemand da, der reparieren könnte.');
+    this.sabotagesUsed += 1;
     this.sabotage = {
       id: id(),
       startedAt: now,
       endsAt: now + this.settings.sabotageDuration * 1000,
+      assigned,
       fixedBy: [],
-      needed: this.settings.sabotageFixesNeeded,
+      needed: assigned.length,
     };
-    this.logEvent(now, 'sabotage', 'Reaktor sabotiert!');
+    const names = assigned.map((pid) => this.players.get(pid).name).join(' & ');
+    this.logEvent(now, 'sabotage', `Reaktor sabotiert! Reparieren müssen: ${names}`, { players: assigned });
     this.logEvent(now, 'sabotage-by', `Sabotage ausgelöst von ${imp.name}`, { secret: true, players: [imp.id] });
   }
 
@@ -553,13 +611,17 @@ class Game {
     if (!s) throw new GameError('Es gibt nichts zu reparieren.');
     const p = this.getPlayer(playerId);
     if (!p.role || !p.alive) throw new GameError('Nur lebende Spieler können reparieren.');
-    if (s.fixedBy.includes(p.id)) throw new GameError('Du hast schon repariert – ein anderer Spieler muss helfen!');
+    if (!s.assigned.includes(p.id)) throw new GameError('Du bist nicht ausgelost – die ausgelosten Spieler müssen reparieren!');
+    if (s.fixedBy.includes(p.id)) throw new GameError('Du hast schon repariert – jetzt ist der andere dran!');
     s.fixedBy.push(p.id);
-    if (s.fixedBy.length >= s.needed) {
-      this.endSabotage(now);
-      const names = s.fixedBy.map((pid) => this.players.get(pid)?.name).filter(Boolean).join(' & ');
-      this.logEvent(now, 'fixed', `Reaktor repariert von ${names}`, { players: s.fixedBy });
-    }
+    if (s.fixedBy.length >= s.needed) this.finishRepair(now);
+  }
+
+  finishRepair(now) {
+    const s = this.sabotage;
+    this.endSabotage(now);
+    const names = s.fixedBy.map((pid) => this.players.get(pid)?.name).filter(Boolean).join(' & ');
+    this.logEvent(now, 'fixed', names ? `Reaktor repariert von ${names}` : 'Reaktor repariert', { players: s.fixedBy });
   }
 
   endSabotage(now) {
@@ -600,6 +662,7 @@ class Game {
 
   /** Wird regelmäßig vom Server aufgerufen; gibt true zurück, wenn sich etwas geändert hat. */
   tick(now) {
+    if (this.resolvePendingKills(now)) return true;
     if (this.phase === 'playing' && this.sabotage && now >= this.sabotage.endsAt) {
       this.end('impostors', 'Die Sabotage wurde nicht rechtzeitig repariert!', now);
       return true;
@@ -666,8 +729,17 @@ class Game {
       meeting: this.meetingView(this.meeting, false),
       lastMeetingId: this.lastMeeting ? this.lastMeeting.id : null,
       sabotage: this.sabotage
-        ? { id: this.sabotage.id, endsAt: this.sabotage.endsAt, fixes: this.sabotage.fixedBy.length, needed: this.sabotage.needed }
+        ? {
+          id: this.sabotage.id,
+          endsAt: this.sabotage.endsAt,
+          fixes: this.sabotage.fixedBy.length,
+          needed: this.sabotage.needed,
+          // Wer repariert, ist für alle sichtbar – sonst wüsste niemand, wer zum Reaktor muss.
+          assigned: this.sabotage.assigned,
+          fixedBy: this.sabotage.fixedBy,
+        }
         : null,
+      sabotagesLeft: this.phase === 'lobby' ? this.settings.sabotagesPerRound : this.settings.sabotagesPerRound - this.sabotagesUsed,
       winner: this.winner,
       announcements: this.announcements.slice(-5),
     };
@@ -698,6 +770,9 @@ class Game {
       killReadyAt: isImpostor ? me.killReadyAt : null,
       sabotageReadyAt: isImpostor ? this.sabotageReadyAt : null,
       hasFixed: this.sabotage ? this.sabotage.fixedBy.includes(me.id) : false,
+      mustFix: this.sabotage ? this.sabotage.assigned.includes(me.id) && !this.sabotage.fixedBy.includes(me.id) : false,
+      // Impostor sehen die laufenden verzögerten Kills ihres Teams
+      pendingKills: isImpostor ? this.pendingKills.map((k) => ({ victimId: k.victimId, impostorId: k.impostorId, diesAt: k.diesAt })) : [],
       myVote: this.meeting ? this.meeting.votes[me.id] ?? null : null,
     };
     // Unentdeckte Leichen, die gemeldet werden können
@@ -727,7 +802,7 @@ class Game {
     view.events = this.events.slice(-60);
     view.meetingHistory = this.meetingHistory;
     view.progressLog = this.progressLog;
-    if (this.sabotage) view.sabotage.fixedBy = this.sabotage.fixedBy;
+    view.pendingKills = this.pendingKills;
     return view;
   }
 

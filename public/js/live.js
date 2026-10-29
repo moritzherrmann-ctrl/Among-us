@@ -168,7 +168,8 @@ function renderLobby() {
         <li><b>${s.emergencyMeetings}</b> Notfall-Meeting${s.emergencyMeetings === 1 ? '' : 's'}</li>
         <li><b>${s.discussionTime}s</b> Diskussion · <b>${s.votingTime}s</b> Abstimmung</li>
         <li>Kill-Cooldown <b>${s.killCooldown}s</b></li>
-        ${s.sabotageEnabled ? `<li>Sabotage: <b>${s.sabotageDuration}s</b> zum Reparieren</li>` : ''}
+        ${s.killDelay > 0 ? `<li>Opfer sterben nach <b>${s.killDelay}s</b></li>` : ''}
+        ${s.sabotageEnabled ? `<li><b>${s.sabotagesPerRound}×</b> Sabotage pro Runde · <b>${s.sabotageFixesNeeded}</b> ausgeloste Reparierer · <b>${s.sabotageDuration}s</b></li>` : ''}
       </ul>
     </section>
   </div>`;
@@ -246,7 +247,9 @@ function playerBoard() {
     } else if (secret && p.role === 'impostor' && p.alive && state.phase === 'playing') {
       detail = `<small>Kill ${countdown(p.killReadyAt, { doneText: 'bereit' })}</small>`;
     }
-    const status = alive ? '' : p.ejected ? 'rausgeworfen' : (secret && !p.bodyReported ? 'tot (unentdeckt)' : 'tot');
+    const pending = secret ? (state.pendingKills || []).find((k) => k.victimId === p.id) : null;
+    const status = pending ? `☠️ stirbt in ${countdown(pending.diesAt, { doneText: 'gleich' })}`
+      : alive ? '' : p.ejected ? 'rausgeworfen' : (secret && !p.bodyReported ? 'tot (unentdeckt)' : 'tot');
     return `<div class="bp ${alive ? '' : 'dead'} ${p.connected ? '' : 'offline'}">
       ${avatar(p, 44)}
       <div class="bp-info">
@@ -260,7 +263,7 @@ function playerBoard() {
 }
 
 const EVENT_ICONS = {
-  start: '🚀', task: '✅', 'fake-task': '🎭', kill: '🔪', report: '🚨', meeting: '📣', dead: '💀',
+  start: '🚀', poison: '☠️', task: '✅', 'fake-task': '🎭', kill: '🔪', report: '🚨', meeting: '📣', dead: '💀',
   eject: '🛸', 'eject-role': '🔎', sabotage: '☢️', 'sabotage-by': '☢️', fixed: '🔧', end: '🏁', mod: '🛠',
 };
 
@@ -293,11 +296,15 @@ function meetingHistoryList() {
 function sabotageBanner() {
   const s = state.sabotage;
   if (!s) return '';
-  const fixers = secret && s.fixedBy ? s.fixedBy.map((id) => playerById(id)?.name).filter(Boolean) : [];
+  const fixers = s.assigned.map((id) => {
+    const p = playerById(id);
+    return p ? `<span class="fixer ${s.fixedBy.includes(id) ? 'done' : ''}">${crewmate(colorOf(p), { size: 26 })}${esc(p.name)} ${s.fixedBy.includes(id) ? '✅' : '⏳'}</span>` : '';
+  }).join('');
   return `<div class="live-sabotage">
     <span>☢️ REAKTOR-KERNSCHMELZE</span>
     <b>${countdown(s.endsAt)}</b>
-    <span>${s.fixes}/${s.needed} repariert${fixers.length ? ` (${fixers.map(esc).join(', ')})` : ''}</span>
+    <span>Reparieren müssen:</span>
+    <span class="fixers">${fixers}</span>
   </div>`;
 }
 

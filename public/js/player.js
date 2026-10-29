@@ -75,6 +75,11 @@ function detectEvents(prev, next) {
     closeModal();
   }
   if (next.sabotage && (!prev || !prev.sabotage || prev.sabotage.id !== next.sabotage.id)) sounds.sabotage();
+  // Ausgelost (auch als Ersatz für einen gestorbenen Reparierer)
+  if (me.mustFix && (!prev || !prev.me || !prev.me.mustFix)) {
+    vibrate([400, 150, 400, 150, 400]);
+    toast('🔧 Du bist ausgelost! Lauf zum Reaktor und repariere ihn!', 'error', 8000);
+  }
   if (prev && prev.me && prev.me.alive && !me.alive && me.role && !me.ejected) {
     sounds.kill();
     toast('Du wurdest getötet! Bleib liegen, bis du gefunden wirst. 💀', 'error', 6000);
@@ -199,14 +204,25 @@ function renderProgress() {
 function renderSabotage(me) {
   const s = state.sabotage;
   if (!s || state.phase !== 'playing') return '';
-  const canFix = me && me.alive && me.role;
+  const fixers = s.assigned.map((id) => {
+    const p = playerById(id);
+    const done = s.fixedBy.includes(id);
+    return p ? `<span class="fixer ${done ? 'done' : ''}">${crewmate(colorOf(p), { size: 24 })}${esc(p.name)} ${done ? '✅' : '⏳'}</span>` : '';
+  }).join('');
+  let action = '';
+  if (me && me.mustFix && me.alive) {
+    action = '<p><b>Du bist ausgelost!</b></p><button class="btn danger big" data-action="fix">🔧 Reaktor reparieren</button>';
+  } else if (me && me.hasFixed) {
+    action = '<p><b>Du hast repariert ✅ – jetzt muss noch der andere!</b></p>';
+  } else if (me && me.role) {
+    action = '<p class="hint">Du bist nicht ausgelost. Hilf den anderen, schnell zum Reaktor zu kommen!</p>';
+  }
   return `<div class="card sabotage">
     <h2>⚠️ REAKTOR-KERNSCHMELZE ⚠️</h2>
     <p class="huge">${countdown(s.endsAt)}</p>
-    <p>${s.needed} verschiedene Spieler müssen am Reaktor reparieren! (${s.fixes}/${s.needed})</p>
-    ${canFix ? (me.hasFixed
-      ? '<p><b>Du hast repariert ✅ – jemand anderes muss noch helfen!</b></p>'
-      : '<button class="btn danger big" data-action="fix">🔧 Reaktor reparieren</button>') : ''}
+    <p>Diese Spieler müssen am Reaktor reparieren (${s.fixes}/${s.needed}):</p>
+    <div class="fixers">${fixers}</div>
+    ${action}
   </div>`;
 }
 
@@ -244,16 +260,27 @@ function renderPlaying(me) {
   let secret = '';
   if (secretOpen) {
     const partners = state.players.filter((p) => p.role === 'impostor' && p.id !== me.id);
-    const victims = state.players.filter((p) => p.playing && p.alive && p.role !== 'impostor');
+    const pendingIds = new Set(me.pendingKills.map((k) => k.victimId));
+    const victims = state.players.filter((p) => p.playing && p.alive && p.role !== 'impostor' && !pendingIds.has(p.id));
+    const pending = me.pendingKills.map((k) => {
+      const v = playerById(k.victimId);
+      const by = k.impostorId === me.id ? '' : ` (von ${esc(playerById(k.impostorId)?.name || '?')})`;
+      return v ? `<li>☠️ <b>${esc(v.name)}</b>${by} stirbt in ${countdown(k.diesAt, { doneText: 'gleich' })}</li>` : '';
+    }).join('');
+    const sabLeft = state.sabotagesLeft;
     secret = isImp ? `
       <div class="secret impostor">
         <h3>Du bist IMPOSTOR 🔪</h3>
         ${partners.length ? `<p>Komplizen: ${partners.map((p) => `<b>${esc(p.name)}</b>${p.alive ? '' : ' 💀'}`).join(', ')}</p>` : ''}
         <p class="hint">Deine Aufgaben sind nur Tarnung – sie zählen nicht.</p>
         ${me.alive ? `<button class="btn danger big" id="kill-btn" data-action="kill" ${victims.length ? '' : 'disabled'}>
-          🔪 Töten ${countdown(me.killReadyAt, { prefix: '– ', doneText: '– bereit', toggle: 'kill-btn' })}</button>` : ''}
-        ${state.settings.sabotageEnabled ? `<button class="btn warning big" id="sabotage-btn" data-action="sabotage" ${state.sabotage ? 'disabled' : ''}>
-          ☢️ Reaktor sabotieren ${state.sabotage ? '' : countdown(me.sabotageReadyAt, { prefix: '– ', doneText: '– bereit', toggle: 'sabotage-btn' })}</button>` : ''}
+          🔪 Opfer auswählen ${countdown(me.killReadyAt, { prefix: '– ', doneText: '– bereit', toggle: 'kill-btn' })}</button>` : ''}
+        ${state.settings.killDelay > 0 ? `<p class="hint">Opfer sterben erst ${state.settings.killDelay} Sekunden nach deinem Kill.</p>` : ''}
+        ${pending ? `<ul class="pending-kills">${pending}</ul>` : ''}
+        ${state.settings.sabotageEnabled ? (sabLeft > 0
+          ? `<button class="btn warning big" id="sabotage-btn" data-action="sabotage" ${state.sabotage ? 'disabled' : ''}>
+              ☢️ Reaktor sabotieren <small>(${sabLeft} übrig)</small> ${state.sabotage ? '' : countdown(me.sabotageReadyAt, { prefix: '– ', doneText: '– bereit', toggle: 'sabotage-btn' })}</button>`
+          : '<p class="hint">Keine Sabotagen mehr in dieser Runde.</p>') : ''}
       </div>` : `
       <div class="secret crew">
         <h3>Du bist CREWMATE 👩‍🚀</h3>
@@ -393,14 +420,18 @@ async function onAction(btn) {
       }
       break;
     case 'kill': {
-      const victims = state.players.filter((p) => p.playing && p.alive && p.role !== 'impostor');
-      pickPlayer('Wen hast du erwischt?', victims, 'Töten', (id) => send('player:kill', { victimId: id }).then((r) => {
-        if (r.ok) sounds.kill();
+      const pendingIds = new Set(me.pendingKills.map((k) => k.victimId));
+      const victims = state.players.filter((p) => p.playing && p.alive && p.role !== 'impostor' && !pendingIds.has(p.id));
+      const delay = state.settings.killDelay;
+      pickPlayer('Wen willst du töten?', victims, 'Töten', (id) => send('player:kill', { victimId: id }).then((r) => {
+        if (!r.ok) return;
+        sounds.kill();
+        if (delay > 0) toast(`${playerById(id)?.name} stirbt in ${delay} Sekunden.`, 'info', 5000);
       }));
       break;
     }
     case 'sabotage':
-      if (await confirmDialog('Reaktor sabotieren? Alle Geräte schlagen Alarm.', { okText: 'Sabotieren', danger: true })) {
+      if (await confirmDialog(`Reaktor sabotieren? Alle Geräte schlagen Alarm und ${state.settings.sabotageFixesNeeded} zufällige Crewmates müssen reparieren.`, { okText: 'Sabotieren', danger: true })) {
         send('sabotage:start');
       }
       break;

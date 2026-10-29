@@ -9,6 +9,7 @@ const SETTINGS = [
   ['impostors', 'Anzahl Impostor'],
   ['tasksPerPlayer', 'Aufgaben pro Spieler'],
   ['killCooldown', 'Kill-Cooldown (Sek.)'],
+  ['killDelay', 'Opfer stirbt nach (Sek., 0 = sofort)'],
   ['discussionTime', 'Diskussionszeit (Sek.)'],
   ['votingTime', 'Abstimmungszeit (Sek.)'],
   ['resultTime', 'Ergebnis-Anzeige (Sek.)'],
@@ -18,7 +19,8 @@ const SETTINGS = [
   ['sabotageEnabled', 'Sabotage erlaubt'],
   ['sabotageDuration', 'Zeit bis Kernschmelze (Sek.)'],
   ['sabotageCooldown', 'Sabotage-Cooldown (Sek.)'],
-  ['sabotageFixesNeeded', 'Nötige Reparaturen (versch. Spieler)'],
+  ['sabotagesPerRound', 'Sabotagen pro Runde'],
+  ['sabotageFixesNeeded', 'Reparierer (zufällig ausgelost)'],
 ];
 
 const PHASES = {
@@ -157,13 +159,15 @@ function renderRunning() {
 
   const sabotage = s ? `<div class="card sabotage">
       <h2>☢️ Sabotage aktiv – ${countdown(s.endsAt)}</h2>
-      <p>Reparaturen: ${s.fixes}/${s.needed} ${s.fixedBy.length ? `(${s.fixedBy.map((id) => esc(playerById(id)?.name || '?')).join(', ')})` : ''}</p>
+      <p>Ausgelost (${s.fixes}/${s.needed} repariert): ${s.assigned.map((id) => `<b>${esc(playerById(id)?.name || '?')}</b> ${s.fixedBy.includes(id) ? '✅' : '⏳'}`).join(' · ')}</p>
       <button class="btn secondary" data-action="end-sabotage">Sabotage beenden</button>
     </div>` : '';
 
   const rows = participants.map((p) => {
     const done = p.tasks.filter((t) => t.done).length;
-    const status = p.alive ? '🟢 lebt' : p.ejected ? '🚀 rausgeworfen' : p.bodyReported ? '💀 tot' : '💀 tot (nicht gefunden)';
+    const pending = (state.pendingKills || []).find((k) => k.victimId === p.id);
+    const status = pending ? `☠️ stirbt in ${countdown(pending.diesAt, { doneText: 'gleich' })}`
+      : p.alive ? '🟢 lebt' : p.ejected ? '🚀 rausgeworfen' : p.bodyReported ? '💀 tot' : '💀 tot (nicht gefunden)';
     return `<tr class="${p.alive ? '' : 'is-dead'}">
       <td><div class="cell-player">${crewmate(colorOf(p), { dead: !p.alive, size: 26 })}<span>${esc(p.name)}${p.connected ? '' : ' <small class="offline-dot">offline</small>'}</span></div></td>
       <td><span class="role ${p.role}">${p.role === 'impostor' ? '🔪 Impostor' : 'Crew'}</span></td>
@@ -185,7 +189,7 @@ function renderRunning() {
         <div><b>${pct}%</b><span>Aufgaben</span></div>
       </div>
       <div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div>
-      ${!s && state.settings.sabotageEnabled && state.phase === 'playing' ? `<p class="hint">Sabotage für Impostor ${countdown(state.sabotageReadyAt, { prefix: 'bereit in ', doneText: 'bereit' })}</p>` : ''}
+      ${state.settings.sabotageEnabled ? `<p class="hint">Sabotagen übrig: ${state.sabotagesLeft} von ${state.settings.sabotagesPerRound}${!s && state.phase === 'playing' && state.sabotagesLeft > 0 ? ` · ${countdown(state.sabotageReadyAt, { prefix: 'bereit in ', doneText: 'bereit' })}` : ''}</p>` : ''}
     </div>
     <div class="card">
       <h3>Spieler</h3>

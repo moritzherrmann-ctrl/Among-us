@@ -22,18 +22,23 @@ const COLORS = [
 ];
 
 const DEFAULT_TASKS = [
-  { name: 'Kabel verbinden', location: 'Flur', description: 'Verbinde die farbigen Kabel am Verteiler – jede Farbe mit derselben Farbe.' },
-  { name: 'Müll rausbringen', location: 'Küche', description: 'Bring den vollen Müllbeutel zur Tonne und setz einen neuen ein.' },
-  { name: 'Karten sortieren', location: 'Wohnzimmer', description: 'Sortiere die Spielkarten nach Farben und lege sie auf vier Stapel.' },
-  { name: 'Ausweis scannen', location: 'Eingang', description: 'Halte deine Hand 5 Sekunden lang still auf den „Scanner“ (Zettel an der Tür).' },
-  { name: 'Treibstoff tanken', location: 'Garage', description: 'Fülle die Flasche am Wasserhahn und gieß sie in den Eimer beim Auto.' },
-  { name: 'Asteroiden abschießen', location: 'Balkon', description: 'Triff mit dem Ball dreimal das Ziel an der Wand.' },
-  { name: 'Schild aktivieren', location: 'Schlafzimmer', description: 'Drück alle Lichtschalter im Raum einmal an und wieder aus.' },
-  { name: 'Pflanzen gießen', location: 'Garten', description: 'Gieß die markierten Pflanzen mit der Gießkanne.' },
-  { name: 'Daten hochladen', location: 'Arbeitszimmer', description: 'Bleib 20 Sekunden am Schreibtisch stehen und zähl laut bis 20.' },
-  { name: 'Kurs berechnen', location: 'Keller', description: 'Löse die Rechenaufgabe auf dem Zettel. Das Ergebnis ist der Code.' },
-  { name: 'Probe analysieren', location: 'Bad', description: 'Schüttle das Glas mit den Murmeln und zähl die roten Murmeln.' },
-  { name: 'Sicherungen prüfen', location: 'Abstellraum', description: 'Finde den versteckten Zettel im Raum und lies den Code ab.' },
+  { name: 'Putten', location: '', description: 'Putte die 3 pinken Golfbälle ins Ziel.' },
+  { name: 'Müll wegwerfen', location: '', description: 'Wirf 5 Papierkügelchen mit deiner nicht dominanten Hand in den Mülleimer.' },
+  { name: 'Müll rausbringen', location: '', description: 'Bring den Mülleimer mit den 5 Papierkügelchen raus.' },
+  { name: 'Treibstoff nachfüllen', location: 'Bad (Mitte) → Bad (oben)', description: 'Bring 1 Liter Wasser vom Bad in der Mitte ins Bad oben.' },
+  { name: 'Farben sortieren', location: '', description: 'Sortiere die bunten Gegenstände nach Farben.' },
+  { name: 'Lego-Modell bauen', location: '', description: 'Baue das Lego-Modell nach der Vorlage zusammen.' },
+  { name: 'Würfeln', location: '', description: 'Würfle so lange mit zwei Würfeln, bis du einen 6er-Pasch hast.' },
+  { name: 'Knoten lösen', location: '', description: 'Löse den Knoten im Seil vollständig auf.' },
+  { name: 'Kabel sortieren', location: '', description: 'Entwirre die Kabel und lege sie ordentlich nebeneinander.' },
+  { name: 'Gegenstände zählen', location: '', description: 'Zähle die Gegenstände im Behälter.' },
+  { name: 'Gegenstand finden', location: '', description: 'Finde den versteckten Gegenstand im Raum.' },
+  { name: 'Becherstapeln', location: '', description: 'Staple die Becher zu einer Pyramide und baue sie wieder ab.' },
+  { name: 'Münzen zählen', location: '', description: 'Zähle, wie viel Geld in den Münzen steckt.' },
+  { name: 'Ball versenken', location: '', description: 'Versenke den Ball im Ziel.' },
+  { name: 'Löffel-Transport', location: '', description: 'Trag den Gegenstand auf einem Löffel ans Ziel, ohne ihn fallen zu lassen.' },
+  { name: 'Mutter von Gewindestange', location: '', description: 'Dreh die Mutter ganz von der Gewindestange ab.' },
+  { name: 'Spiegelverkehrt schreiben', location: '', description: 'Schreibe deinen Vor- und Nachnamen spiegelverkehrt auf.' },
 ];
 
 const DEFAULT_SETTINGS = {
@@ -98,7 +103,15 @@ class GameError extends Error {}
 class Game {
   constructor({ settings, tasks } = {}) {
     this.settings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
-    this.taskCatalog = (tasks || DEFAULT_TASKS).map((t) => ({
+    this.taskCatalog = Game.normalizeTasks(tasks || DEFAULT_TASKS);
+    this.players = new Map();
+    this.fixedImpostors = new Set();
+    this.announcements = [];
+    this.resetRound();
+  }
+
+  static normalizeTasks(tasks) {
+    return tasks.map((t) => ({
       id: t.id || id(),
       name: cleanText(t.name, 60),
       location: cleanText(t.location, 40),
@@ -106,10 +119,11 @@ class Game {
       code: cleanText(t.code, 12),
       enabled: t.enabled !== false,
     }));
-    this.players = new Map();
-    this.fixedImpostors = new Set();
-    this.announcements = [];
-    this.resetRound();
+  }
+
+  /** Katalog durch die Standard-Aufgaben ersetzen (alte Aufgaben werden gelöscht). */
+  resetTasks() {
+    this.taskCatalog = Game.normalizeTasks(DEFAULT_TASKS);
   }
 
   resetRound() {

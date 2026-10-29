@@ -256,6 +256,7 @@ function renderTasks() {
       <div class="row">
         <button class="btn small secondary" data-action="tasks-all" data-enabled="1">Alle an</button>
         <button class="btn small secondary" data-action="tasks-all" data-enabled="0">Alle aus</button>
+        <button class="btn small secondary" data-action="tasks-reset">↺ Standard-Aufgaben laden</button>
       </div>
     </div>
     <p class="hint">Jeder Spieler bekommt zufällig ${state.settings.tasksPerPlayer} der aktiven Aufgaben. Änderungen gelten ab der nächsten Runde.</p>
@@ -339,6 +340,12 @@ $('#dash').addEventListener('click', async (e) => {
       break;
     case 'task-remove':
       send('mod:task:remove', { id });
+      break;
+    case 'tasks-reset':
+      if (await confirmDialog('Alle Aufgaben löschen und die Standard-Aufgaben laden? Eigene Aufgaben gehen dabei verloren.', { okText: 'Laden', danger: true })) {
+        const res = await send('mod:task:reset');
+        if (res.ok) toast('Standard-Aufgaben geladen', 'success');
+      }
       break;
     case 'tasks-all':
       send('mod:task:all', { enabled: btn.dataset.enabled === '1' });

@@ -272,3 +272,13 @@ test('Aufgaben-Beschreibung: wird gespeichert, an Spieler verteilt und bei der R
   const fixer = game.sabotage.assigned[0];
   assert.ok(game.viewFor(fixer, 0).sabotage.tasks[fixer].description.length > 0);
 });
+
+test('Standard-Aufgaben: 17 neue Aufgaben, Zurücksetzen ersetzt den Katalog', () => {
+  const game = new Game({ tasks: [{ name: 'Alt', location: 'X' }] });
+  assert.equal(game.taskCatalog.length, 1);
+  game.resetTasks();
+  assert.equal(game.taskCatalog.length, 17);
+  assert.ok(!game.taskCatalog.some((t) => t.name === 'Alt'));
+  assert.ok(game.taskCatalog.every((t) => t.name && t.description && t.enabled));
+  assert.equal(new Set(game.taskCatalog.map((t) => t.id)).size, 17);
+});

@@ -148,6 +148,7 @@ io.on('connection', (socket) => {
   socket.on('mod:task:add', handle(socket, requireMod((task) => { game.addTask(task); }), { persist: true }));
   socket.on('mod:task:update', handle(socket, requireMod(({ id, ...patch }) => game.updateTask(id, patch)), { persist: true }));
   socket.on('mod:task:remove', handle(socket, requireMod(({ id }) => game.removeTask(id)), { persist: true }));
+  socket.on('mod:task:reset', handle(socket, requireMod(() => game.resetTasks()), { persist: true }));
   socket.on('mod:task:all', handle(socket, requireMod(({ enabled }) => {
     for (const t of game.taskCatalog) t.enabled = !!enabled;
   }), { persist: true }));

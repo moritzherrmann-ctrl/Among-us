@@ -21,7 +21,8 @@ Ein Gerät (Laptop/PC) startet den Server, alle anderen Handys/Tablets verbinden
 
 **Moderatoren-App** (`http://<IP>:3000/moderator`, mit PIN)
 - **Spielerauswahl**: wer spielt mit, Impostor fest einteilen, umbenennen, entfernen
-- **Aufgabenauswahl**: Katalog bearbeiten, Aufgaben an/aus, eigene Aufgaben mit Ort, Beschreibung & Code anlegen
+- **Aufgabenauswahl**: Katalog bearbeiten, Aufgaben an/aus, eigene Aufgaben mit Ort, Beschreibung & Code anlegen,
+  „Standard-Aufgaben laden“ ersetzt den Katalog durch die 17 mitgelieferten Aufgaben
 - **Einstellungen**: Anzahl Impostor, Aufgaben pro Spieler, Kill-Cooldown, Verzögerung bis zum Tod,
   Diskussions-/Abstimmungszeit, Notfall-Meetings, anonyme Abstimmung, Rauswurf bestätigen,
   Sabotagen pro Runde, Anzahl ausgeloster Reparierer, Sabotage-Zeiten …

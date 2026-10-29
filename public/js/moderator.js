@@ -412,5 +412,11 @@ $('#qr-btn').addEventListener('click', async () => {
     ${info.qr ? `<img class="qr" src="${info.qr}" alt="QR-Code">` : ''}
     <p>Alle Geräte müssen im <b>gleichen WLAN</b> sein.</p>
     ${info.urls.map((u) => `<p class="url">${esc(u)}</p>`).join('')}
+    ${info.liveUrl ? `<div class="other-urls">
+      <p><b>📺 Live-Board</b> für PC, Beamer oder TV:</p>
+      <p class="url small-url">${esc(info.liveUrl)}</p>
+      <p><b>🎮 Moderator</b> auf einem weiteren Gerät:</p>
+      <p class="url small-url">${esc(info.moderatorUrl)}</p>
+    </div>` : ''}
     <button class="btn primary" data-close>Schließen</button>`);
 });

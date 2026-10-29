@@ -481,3 +481,6 @@ textarea:focus { border-color: var(--primary); }
 }
 
 .badge.demo { background: #7b4dff; color: #fff; letter-spacing: 0.08em; font-size: 0.7rem; vertical-align: 0.15em; }
+.other-urls { border-top: 1px solid #ffffff18; margin-top: 12px; padding-top: 6px; text-align: left; }
+.other-urls p { margin: 8px 0 4px; }
+.url.small-url { font-size: 0.95rem; margin-top: 0; }

@@ -58,7 +58,12 @@ app.get('/api/join-info', async (req, res) => {
   if (host && !/^(localhost|127\.)/.test(host)) urls.unshift(`${req.protocol}://${host}/`);
   const unique = [...new Set(urls)];
   const qr = unique[0] ? await QRCode.toDataURL(unique[0], { margin: 1, width: 320 }) : null;
-  res.json({ urls: unique, qr });
+  res.json({
+    urls: unique,
+    qr,
+    moderatorUrl: unique[0] ? `${unique[0]}moderator` : null,
+    liveUrl: unique[0] ? `${unique[0]}live` : null,
+  });
 });
 
 // ---------- Echtzeit-Kommunikation ----------
@@ -193,8 +198,10 @@ setInterval(() => {
 
 server.listen(PORT, () => {
   const addrs = lanAddresses();
+  const urls = (p) => addrs.map((a) => `http://${a}:${PORT}${p}`).join('  ') || `http://localhost:${PORT}${p}`;
   console.log('\n  ඞ  Among Us Real Life läuft!\n');
-  console.log(`  Spieler:    ${addrs.map((a) => `http://${a}:${PORT}/`).join('  ') || `http://localhost:${PORT}/`}`);
-  console.log(`  Moderator:  ${addrs.map((a) => `http://${a}:${PORT}/moderator`).join('  ') || `http://localhost:${PORT}/moderator`}`);
+  console.log(`  Spieler:     ${urls('/')}`);
+  console.log(`  Moderator:   ${urls('/moderator')}`);
+  console.log(`  Live-Board:  ${urls('/live')}   (auf diesem Rechner: http://localhost:${PORT}/live)`);
   console.log(`  Moderator-PIN: ${MOD_PIN}\n`);
 });

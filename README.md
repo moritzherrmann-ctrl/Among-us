@@ -61,8 +61,9 @@ npm start
 Die Konsole zeigt die Adressen und den **Moderator-PIN**:
 
 ```
-  Spieler:    http://192.168.0.23:3000/
-  Moderator:  http://192.168.0.23:3000/moderator
+  Spieler:     http://192.168.0.23:3000/
+  Moderator:   http://192.168.0.23:3000/moderator
+  Live-Board:  http://192.168.0.23:3000/live   (auf diesem Rechner: http://localhost:3000/live)
   Moderator-PIN: 4821
 ```
 

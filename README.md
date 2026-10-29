@@ -60,6 +60,16 @@ Die Konsole zeigt die Adressen und den **Moderator-PIN**:
   Moderator-PIN: 4821
 ```
 
+**Windows ohne Terminal:** Doppelklick auf `starten.bat` startet den Server (beim ersten Mal wird
+vorher automatisch installiert). `aktualisieren.bat` holt die neueste Version von GitHub – dafür das
+Spiel einmal mit Git herunterladen statt als ZIP:
+
+```bash
+git clone https://github.com/moritzherrmann-ctrl/Among-us.git
+```
+
+Aufgaben und Einstellungen im Ordner `data/` bleiben beim Aktualisieren erhalten.
+
 Eigener PIN oder Port: `MOD_PIN=1234 PORT=8080 npm start`
 
 > Alle Geräte müssen im **gleichen WLAN** sein. Falls sich Handys nicht verbinden, die Firewall des

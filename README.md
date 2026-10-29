@@ -10,7 +10,7 @@ Ein Gerät (Laptop/PC) startet den Server, alle anderen Handys/Tablets verbinden
 **Spieler-App** (`http://<IP>:3000/`)
 - Mit Namen beitreten, Farbe wählen, automatische Wiederverbindung (auch nach Neuladen)
 - Geheime Rollen-Anzeige (Crewmate / Impostor) – Impostor sehen ihre Komplizen
-- Eigene Aufgabenliste mit Ort, optional mit **Code-Prüfung** (Zettel am Aufgabenort)
+- Eigene Aufgabenliste mit Ort und Beschreibung, optional mit **Code-Prüfung** (Zettel am Aufgabenort)
 - Gemeinsamer Aufgaben-Fortschrittsbalken
 - 🚨 Leiche melden, 📣 Notfall-Meeting (begrenzt), 💀 „Ich wurde getötet"
 - Impostor: 🔪 Opfer aus einer Liste auswählen (mit Cooldown, optional stirbt das Opfer erst nach
@@ -21,7 +21,7 @@ Ein Gerät (Laptop/PC) startet den Server, alle anderen Handys/Tablets verbinden
 
 **Moderatoren-App** (`http://<IP>:3000/moderator`, mit PIN)
 - **Spielerauswahl**: wer spielt mit, Impostor fest einteilen, umbenennen, entfernen
-- **Aufgabenauswahl**: Katalog bearbeiten, Aufgaben an/aus, eigene Aufgaben mit Ort & Code anlegen
+- **Aufgabenauswahl**: Katalog bearbeiten, Aufgaben an/aus, eigene Aufgaben mit Ort, Beschreibung & Code anlegen
 - **Einstellungen**: Anzahl Impostor, Aufgaben pro Spieler, Kill-Cooldown, Verzögerung bis zum Tod,
   Diskussions-/Abstimmungszeit, Notfall-Meetings, anonyme Abstimmung, Rauswurf bestätigen,
   Sabotagen pro Runde, Anzahl ausgeloster Reparierer, Sabotage-Zeiten …

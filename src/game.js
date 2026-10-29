@@ -22,18 +22,18 @@ const COLORS = [
 ];
 
 const DEFAULT_TASKS = [
-  { name: 'Kabel verbinden', location: 'Flur' },
-  { name: 'Müll rausbringen', location: 'Küche' },
-  { name: 'Karten sortieren', location: 'Wohnzimmer' },
-  { name: 'Ausweis scannen', location: 'Eingang' },
-  { name: 'Treibstoff tanken', location: 'Garage' },
-  { name: 'Asteroiden abschießen', location: 'Balkon' },
-  { name: 'Schild aktivieren', location: 'Schlafzimmer' },
-  { name: 'Pflanzen gießen', location: 'Garten' },
-  { name: 'Daten hochladen', location: 'Arbeitszimmer' },
-  { name: 'Kurs berechnen', location: 'Keller' },
-  { name: 'Probe analysieren', location: 'Bad' },
-  { name: 'Sicherungen prüfen', location: 'Abstellraum' },
+  { name: 'Kabel verbinden', location: 'Flur', description: 'Verbinde die farbigen Kabel am Verteiler – jede Farbe mit derselben Farbe.' },
+  { name: 'Müll rausbringen', location: 'Küche', description: 'Bring den vollen Müllbeutel zur Tonne und setz einen neuen ein.' },
+  { name: 'Karten sortieren', location: 'Wohnzimmer', description: 'Sortiere die Spielkarten nach Farben und lege sie auf vier Stapel.' },
+  { name: 'Ausweis scannen', location: 'Eingang', description: 'Halte deine Hand 5 Sekunden lang still auf den „Scanner“ (Zettel an der Tür).' },
+  { name: 'Treibstoff tanken', location: 'Garage', description: 'Fülle die Flasche am Wasserhahn und gieß sie in den Eimer beim Auto.' },
+  { name: 'Asteroiden abschießen', location: 'Balkon', description: 'Triff mit dem Ball dreimal das Ziel an der Wand.' },
+  { name: 'Schild aktivieren', location: 'Schlafzimmer', description: 'Drück alle Lichtschalter im Raum einmal an und wieder aus.' },
+  { name: 'Pflanzen gießen', location: 'Garten', description: 'Gieß die markierten Pflanzen mit der Gießkanne.' },
+  { name: 'Daten hochladen', location: 'Arbeitszimmer', description: 'Bleib 20 Sekunden am Schreibtisch stehen und zähl laut bis 20.' },
+  { name: 'Kurs berechnen', location: 'Keller', description: 'Löse die Rechenaufgabe auf dem Zettel. Das Ergebnis ist der Code.' },
+  { name: 'Probe analysieren', location: 'Bad', description: 'Schüttle das Glas mit den Murmeln und zähl die roten Murmeln.' },
+  { name: 'Sicherungen prüfen', location: 'Abstellraum', description: 'Finde den versteckten Zettel im Raum und lies den Code ab.' },
 ];
 
 const DEFAULT_SETTINGS = {
@@ -70,6 +70,7 @@ const SETTING_LIMITS = {
 };
 
 const MAX_NAME = 20;
+const MAX_DESCRIPTION = 300;
 
 function id() {
   return crypto.randomBytes(6).toString('hex');
@@ -101,6 +102,7 @@ class Game {
       id: t.id || id(),
       name: cleanText(t.name, 60),
       location: cleanText(t.location, 40),
+      description: cleanText(t.description, MAX_DESCRIPTION),
       code: cleanText(t.code, 12),
       enabled: t.enabled !== false,
     }));
@@ -251,11 +253,12 @@ class Game {
     for (const p of this.players.values()) p.meetingsLeft = this.settings.emergencyMeetings;
   }
 
-  addTask({ name, location, code }) {
+  addTask({ name, location, code, description }) {
     const task = {
       id: id(),
       name: cleanText(name, 60),
       location: cleanText(location, 40),
+      description: cleanText(description, MAX_DESCRIPTION),
       code: cleanText(code, 12),
       enabled: true,
     };
@@ -273,6 +276,7 @@ class Game {
       t.name = n;
     }
     if ('location' in patch) t.location = cleanText(patch.location, 40);
+    if ('description' in patch) t.description = cleanText(patch.description, MAX_DESCRIPTION);
     if ('code' in patch) t.code = cleanText(patch.code, 12);
     if ('enabled' in patch) t.enabled = !!patch.enabled;
   }
@@ -313,7 +317,7 @@ class Game {
       p.role = impostorSet.has(p) ? 'impostor' : 'crewmate';
       p.tasks = shuffle(enabledTasks)
         .slice(0, perPlayer)
-        .map((t) => ({ id: t.id, name: t.name, location: t.location, code: t.code, done: false }));
+        .map((t) => ({ id: t.id, name: t.name, location: t.location, description: t.description, code: t.code, done: false }));
       p.killReadyAt = now + this.settings.killCooldown * 1000;
     }
     this.sabotageReadyAt = now + this.settings.sabotageCooldown * 1000;
@@ -601,7 +605,7 @@ class Game {
     const tasks = {};
     assigned.forEach((pid, i) => {
       const t = picked.length ? picked[i % picked.length] : null;
-      tasks[pid] = t ? { name: t.name, location: t.location, code: t.code } : null;
+      tasks[pid] = t ? { name: t.name, location: t.location, description: t.description, code: t.code } : null;
     });
     this.sabotagesUsed += 1;
     this.sabotage = {
@@ -759,7 +763,7 @@ class Game {
           fixedBy: this.sabotage.fixedBy,
           // Reparatur-Aufgabe je Spieler – ohne Code, der steht nur am Aufgabenort
           tasks: Object.fromEntries(Object.entries(this.sabotage.tasks).map(([pid, t]) => [pid, t
-            ? { name: t.name, location: t.location, needsCode: !!t.code } : null])),
+            ? { name: t.name, location: t.location, description: t.description, needsCode: !!t.code } : null])),
         }
         : null,
       sabotagesLeft: this.phase === 'lobby' ? this.settings.sabotagesPerRound : this.settings.sabotagesPerRound - this.sabotagesUsed,
@@ -788,7 +792,7 @@ class Game {
       role: me.role,
       alive: me.alive,
       ejected: me.ejected,
-      tasks: me.tasks.map((t) => ({ id: t.id, name: t.name, location: t.location, needsCode: !!t.code, done: t.done })),
+      tasks: me.tasks.map((t) => ({ id: t.id, name: t.name, location: t.location, description: t.description, needsCode: !!t.code, done: t.done })),
       meetingsLeft: me.meetingsLeft,
       killReadyAt: isImpostor ? me.killReadyAt : null,
       sabotageReadyAt: isImpostor ? this.sabotageReadyAt : null,

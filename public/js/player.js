@@ -216,7 +216,7 @@ function renderSabotage(me) {
     const t = s.tasks[me.id];
     action = `<div class="repair-task">
         <p>Du bist ausgelost! Deine Reparatur-Aufgabe:</p>
-        ${t ? `<h3>${esc(t.name)}</h3>${t.location ? `<p>📍 ${esc(t.location)}</p>` : ''}` : ''}
+        ${t ? `<h3>${esc(t.name)}</h3>${t.location ? `<p>📍 ${esc(t.location)}</p>` : ''}${t.description ? `<p class="task-desc">${esc(t.description)}</p>` : ''}` : ''}
       </div>
       <button class="btn danger big" data-action="fix">🔧 ${t ? 'Aufgabe erledigt – reparieren' : 'Reaktor reparieren'}</button>`;
   } else if (me && me.hasFixed) {
@@ -245,7 +245,7 @@ function renderPlaying(me) {
       <li class="task ${t.done ? 'done' : ''}">
         <button data-action="task" data-task="${t.id}" ${t.done ? 'disabled' : ''}>
           <span class="check">${t.done ? '✔' : ''}</span>
-          <span class="task-text"><b>${esc(t.name)}</b>${t.location ? `<small>📍 ${esc(t.location)}</small>` : ''}</span>
+          <span class="task-text"><b>${esc(t.name)}</b>${t.location ? `<small>📍 ${esc(t.location)}</small>` : ''}${t.description && !t.done ? `<span class="task-desc">${esc(t.description)}</span>` : ''}</span>
           ${t.needsCode && !t.done ? '<span class="tag">Code</span>' : ''}
         </button>
       </li>`).join('')}</ul>
@@ -460,6 +460,7 @@ function completeTask(task) {
   const modal = openModal(`
     <h2>${esc(task.name)}</h2>
     ${task.location ? `<p>📍 ${esc(task.location)}</p>` : ''}
+    ${task.description ? `<p class="task-desc">${esc(task.description)}</p>` : ''}
     ${task.needsCode
       ? `<p>Gib den Code ein, den du am Aufgabenort findest:</p>
          <input id="task-code" autocomplete="off" autocapitalize="characters" placeholder="Code">`
@@ -494,6 +495,7 @@ function repairReactor(task) {
   const modal = openModal(`
     <h2>🔧 ${esc(task.name)}</h2>
     ${task.location ? `<p>📍 ${esc(task.location)}</p>` : ''}
+    ${task.description ? `<p class="task-desc">${esc(task.description)}</p>` : ''}
     <p>Gib den Code ein, den du am Aufgabenort findest:</p>
     <input id="repair-code" autocomplete="off" autocapitalize="characters" placeholder="Code">
     <div class="row">

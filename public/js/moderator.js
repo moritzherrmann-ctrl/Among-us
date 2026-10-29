@@ -162,7 +162,7 @@ function renderRunning() {
       <p>Ausgelost (${s.fixes}/${s.needed} repariert):</p>
       <ul class="repair-list">${s.assigned.map((id) => {
         const t = s.tasks[id];
-        return `<li><b>${esc(playerById(id)?.name || '?')}</b> ${s.fixedBy.includes(id) ? '✅' : '⏳'}${t ? ` – ${esc(t.name)}${t.location ? ` (📍 ${esc(t.location)})` : ''}` : ''}</li>`;
+        return `<li><b>${esc(playerById(id)?.name || '?')}</b> ${s.fixedBy.includes(id) ? '✅' : '⏳'}${t ? ` – ${esc(t.name)}${t.location ? ` (📍 ${esc(t.location)})` : ''}${t.description ? `<br><small>${esc(t.description)}</small>` : ''}` : ''}</li>`;
       }).join('')}</ul>
       <button class="btn secondary" data-action="end-sabotage">Sabotage beenden</button>
     </div>` : '';
@@ -266,6 +266,7 @@ function renderTasks() {
         <input data-field="location" data-id="${t.id}" value="${esc(t.location)}" maxlength="40" placeholder="Ort">
         <input data-field="code" data-id="${t.id}" value="${esc(t.code)}" maxlength="12" placeholder="Code">
         <button class="btn small danger" data-action="task-remove" data-id="${t.id}" title="löschen">🗑</button>
+        <textarea data-field="description" data-id="${t.id}" maxlength="300" rows="2" placeholder="Beschreibung: Was genau ist zu tun?">${esc(t.description)}</textarea>
       </li>`).join('')}</ul>
   </div>`;
 }
@@ -373,6 +374,7 @@ $('#task-form').addEventListener('submit', async (e) => {
   const res = await send('mod:task:add', {
     name: form.name.value,
     location: form.location.value,
+    description: form.description.value,
     code: form.code.value,
   });
   if (res.ok) {

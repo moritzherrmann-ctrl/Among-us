@@ -450,3 +450,32 @@ a.btn { text-decoration: none; text-align: center; }
 .repair-task p { margin: 4px 0; }
 .repair-task h3 { color: #fff; text-transform: none; letter-spacing: 0; font-size: 1.3rem; margin: 4px 0; }
 .repair-list { margin: 0 0 10px; padding-left: 20px; text-align: left; }
+
+/* Aufgaben-Beschreibung */
+textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid #2c3561;
+  background: #0e1328;
+  color: var(--text);
+  outline: none;
+  resize: vertical;
+}
+textarea:focus { border-color: var(--primary); }
+.form-grid textarea { grid-column: 1 / -1; }
+.task-editor li { padding-bottom: 8px; border-bottom: 1px solid #ffffff10; }
+.task-editor li textarea { grid-column: 2 / -1; padding: 6px 10px; }
+.task-editor li.disabled textarea { opacity: 0.45; }
+.task-text .task-desc { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+.task-desc { color: var(--muted); }
+.modal .task-desc { background: #0e1328; border-radius: 10px; padding: 10px 12px; text-align: left; color: var(--text); }
+.repair-task .task-desc { color: #ffd7dc; }
+@media (max-width: 640px) {
+  .task-editor li textarea { grid-column: 2 / 3; }
+}
+@media (max-width: 640px) {
+  .form-grid .btn { order: 1; }
+}

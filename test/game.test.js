@@ -256,3 +256,19 @@ test('Sabotage: Ersatz-Reparierer übernimmt die Aufgabe des Gestorbenen', () =>
   assert.equal(game.sabotage.tasks[replacement], task);
   assert.ok(!(first in game.sabotage.tasks));
 });
+
+test('Aufgaben-Beschreibung: wird gespeichert, an Spieler verteilt und bei der Reparatur gezeigt', () => {
+  const game = new Game({ settings: { sabotageCooldown: 0 }, tasks: [{ name: 'Kabel', location: 'Flur', description: 'Rot an Rot, Blau an Blau' }] });
+  const t = game.addTask({ name: 'Müll', location: 'Küche', description: '  Beutel   zur Tonne  ' });
+  assert.equal(t.description, 'Beutel zur Tonne');
+  game.updateTask(t.id, { description: 'Neuer Text' });
+  assert.equal(game.taskCatalog[1].description, 'Neuer Text');
+  assert.equal(game.config().tasks[0].description, 'Rot an Rot, Blau an Blau');
+  const ps = ['a', 'b', 'c', 'd', 'e'].map((n) => game.join(n));
+  game.start(0);
+  const view = game.viewFor(ps[0].id, 0);
+  assert.ok(view.me.tasks.every((x) => typeof x.description === 'string' && x.description.length > 0));
+  game.startSabotage(ps.find((p) => p.role === 'impostor').id, 0);
+  const fixer = game.sabotage.assigned[0];
+  assert.ok(game.viewFor(fixer, 0).sabotage.tasks[fixer].description.length > 0);
+});

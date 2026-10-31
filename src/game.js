@@ -450,6 +450,7 @@ class Game {
   completeTask(playerId, taskId, code, now = Date.now(), photoId = null) {
     const p = this.getPlayer(playerId);
     if (this.phase !== 'playing') throw new GameError('Aufgaben gehen nur während des Spiels.');
+    if (!p.alive) throw new GameError('Du bist tot und musst keine Aufgaben mehr machen.');
     const task = p.tasks.find((t) => t.id === taskId);
     if (!task) throw new GameError('Aufgabe nicht gefunden.');
     if (task.done) return;
@@ -580,6 +581,7 @@ class Game {
       p.alive = true;
       p.ejected = false;
       p.diedAt = null;
+      if (p.role === 'crewmate') this.progressLog.push({ at: now, ...this.taskProgress() });
       this.logEvent(now, 'mod', `Moderator hat ${p.name} wiederbelebt`, { secret: true, players: [p.id] });
     } else if (p.alive) {
       this.markDead(p, now);
@@ -608,6 +610,10 @@ class Game {
     // Nach dem Meeting gelten alle bis dahin Gestorbenen als gefunden.
     const found = this.participants().filter((p) => !p.alive && !p.bodyReported);
     for (const p of found) p.bodyReported = true;
+    // Gefundene Tote: ihre offenen Aufgaben entfallen ab jetzt
+    if (found.some((p) => p.role === 'crewmate' && p.tasks.some((t) => !t.done))) {
+      this.progressLog.push({ at: now, ...this.taskProgress() });
+    }
 
     if (body) this.logEvent(now, 'report', `${caller.name} hat die Leiche von ${body.name} gemeldet`, { players: [caller.id, body.id] });
     else if (caller) this.logEvent(now, 'meeting', `${caller.name} hat ein Notfall-Meeting einberufen`, { players: [caller.id] });
@@ -697,6 +703,7 @@ class Game {
         ejected.bodyReported = true;
         ejected.diedAt = now;
         this.afterDeath(ejected, now);
+        if (ejected.role === 'crewmate') this.progressLog.push({ at: now, ...this.taskProgress() });
       }
     }
     m.stage = 'result';
@@ -822,13 +829,19 @@ class Game {
     this.logEvent(now, 'end', `${winner === 'crew' ? 'Sieg der Crew' : 'Sieg der Impostor'}: ${reason}`);
   }
 
+  /**
+   * Aufgaben-Fortschritt der Crew. Tote müssen nichts mehr erledigen: Ihre offenen Aufgaben fallen
+   * aus der Gesamtzahl, ihre erledigten zählen weiter. Das gilt erst, wenn die Leiche gefunden wurde
+   * (oder nach Rauswurf) – sonst würde der Balken einen noch unentdeckten Tod verraten.
+   */
   taskProgress() {
     const crew = this.participants().filter((p) => p.role === 'crewmate');
     let total = 0;
     let done = 0;
     for (const p of crew) {
-      total += p.tasks.length;
-      done += p.tasks.filter((t) => t.done).length;
+      const finished = p.tasks.filter((t) => t.done).length;
+      total += p.alive || !p.bodyReported ? p.tasks.length : finished;
+      done += finished;
     }
     return { total, done };
   }

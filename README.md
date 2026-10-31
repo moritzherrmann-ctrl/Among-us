@@ -13,6 +13,9 @@ Ein Gerät (Laptop/PC) startet den Server, alle anderen Handys/Tablets verbinden
 - Eigene Aufgabenliste mit Ort und Beschreibung, optional mit **Code-Prüfung** (Zettel am Aufgabenort)
 - 📷 **Beweisfotos**: Bei Aufgaben mit Fotopflicht macht man beim Abhaken ein Foto mit der Handy-Kamera
 - Gemeinsamer Aufgaben-Fortschrittsbalken
+- 👻 Tote müssen keine Aufgaben mehr machen: Ihre offenen Aufgaben entfallen, sobald die Leiche gefunden
+  wurde (oder nach Rauswurf) – erledigte zählen weiter. Vorher bleibt der Balken unverändert, damit er
+  keinen unentdeckten Tod verrät.
 - 🚨 Leiche melden, 📣 Notfall-Meeting (begrenzt), 💀 „Ich wurde getötet"
 - Impostor: 🔪 Opfer aus einer Liste auswählen (mit Cooldown, optional stirbt das Opfer erst nach
   einer einstellbaren Zeit), ☢️ Reaktor-Sabotage (alle Geräte schlagen Alarm, zufällig ausgeloste

@@ -261,7 +261,11 @@ function renderPlaying(me) {
   const reportable = state.reportable.map(playerById).filter(Boolean);
   const meetingBlocked = !!state.sabotage;
 
-  const tasks = `<div class="card">
+  const tasks = !me.alive ? `<div class="card center">
+    <h3>Deine Aufgaben</h3>
+    <p>👻 Du bist tot und musst <b>keine Aufgaben mehr</b> machen.</p>
+    <p class="hint">${me.ejected ? 'Deine offenen Aufgaben zählen für die Crew nicht mehr mit.' : 'Sobald deine Leiche gefunden wurde, zählen deine offenen Aufgaben für die Crew nicht mehr mit.'}</p>
+  </div>` : `<div class="card">
     <h3>Deine Aufgaben ${openTasks ? `(${openTasks} offen)` : '✅'}</h3>
     <ul class="task-list">${me.tasks.map((t) => `
       <li class="task ${t.done ? 'done' : ''}">
@@ -272,7 +276,6 @@ function renderPlaying(me) {
           ${t.needsPhoto && !t.done ? '<span class="tag photo-tag">📷</span>' : ''}
         </button>
       </li>`).join('')}</ul>
-    ${!me.alive ? '<p class="hint">Als Geist kannst du weiter Aufgaben erledigen.</p>' : ''}
   </div>`;
 
   const actions = me.alive ? `<div class="actions">

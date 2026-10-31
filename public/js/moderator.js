@@ -179,7 +179,7 @@ function renderRunning() {
       <td><div class="cell-player">${crewmate(colorOf(p), { dead: !p.alive, size: 26 })}<span>${esc(p.name)}${p.connected ? '' : ' <small class="offline-dot">offline</small>'}</span></div></td>
       <td><span class="role ${p.role}">${p.role === 'impostor' ? '🔪 Impostor' : 'Crew'}</span></td>
       <td>${status}</td>
-      <td>${p.role === 'impostor' ? (p.alive ? countdown(p.killReadyAt, { doneText: 'Kill bereit' }) : '–') : `${done}/${p.tasks.length}`}
+      <td>${p.role === 'impostor' ? (p.alive ? countdown(p.killReadyAt, { doneText: 'Kill bereit' }) : '–') : `${done}/${p.tasks.length}${!p.alive && done < p.tasks.length ? ` <small class="waived">${p.bodyReported ? 'Rest entfällt' : 'Rest entfällt, sobald gefunden'}</small>` : ''}`}
         ${p.tasks.filter((t) => t.variant).map((t) => `<small class="cell-variant${t.done ? ' done' : ''}">🎯 ${taskTitle(t)}</small>`).join('')}</td>
       <td>${p.alive
         ? `<button class="btn small danger" data-action="kill" data-id="${p.id}">Tot</button>`

@@ -217,7 +217,7 @@ test('Live-Board: Ereignisse, Meeting-Verlauf und Fortschritt werden protokollie
   assert.equal(game.events.find((e) => e.type === 'report').secret, false);
   assert.equal(game.meetingHistory.length, 1);
   assert.equal(game.meetingHistory[0].ejectedId, null);
-  assert.equal(game.progressLog.length, 2);
+  assert.equal(game.progressLog.length, 3); // Start, Aufgabe, Leiche gefunden (offene Aufgaben entfallen)
   const view = game.moderatorView(5000);
   assert.equal(view.events.length, 5);
   assert.equal(view.meetingHistory.length, 1);
@@ -452,4 +452,38 @@ test('Impostor kennen sich gegenseitig, Crewmates erfahren keine Rollen', () => 
     const view = game.viewFor(c.id, 0);
     assert.ok(view.players.every((p) => p.role === undefined));
   }
+});
+
+test('Tote müssen keine Aufgaben mehr machen: offene fallen weg, sobald die Leiche gefunden ist', () => {
+  const { game, crew, impostors } = started(6, { tasksPerPlayer: 4, killCooldown: 0, discussionTime: 0 });
+  assert.deepEqual(game.taskProgress(), { total: 20, done: 0 });
+  game.completeTask(crew[0].id, crew[0].tasks[0].id, '', 1);
+  game.kill(impostors[0].id, crew[0].id, 2);
+  // Noch nicht gefunden: Balken unverändert, damit er den Tod nicht verrät
+  assert.deepEqual(game.taskProgress(), { total: 20, done: 1 });
+  assert.equal(game.viewFor(crew[1].id, 2).taskProgress.total, 20);
+  assert.throws(() => game.completeTask(crew[0].id, crew[0].tasks[1].id, '', 3), /keine Aufgaben/);
+  // Leiche gemeldet: 3 offene Aufgaben entfallen, erledigte zählt weiter
+  game.callMeeting(crew[1].id, crew[0].id, 4);
+  assert.deepEqual(game.taskProgress(), { total: 17, done: 1 });
+  game.advanceMeeting(5); // Sammeln/Abstimmung -> Ergebnis
+  game.advanceMeeting(5);
+  if (game.meeting) game.advanceMeeting(5);
+  assert.equal(game.phase, 'playing');
+  // Wenn alle Lebenden fertig sind, gewinnt die Crew
+  for (const p of crew.slice(1)) for (const t of p.tasks) game.completeTask(p.id, t.id, '', 6);
+  assert.equal(game.phase, 'ended');
+  assert.equal(game.winner.team, 'crew');
+  assert.match(game.winner.reason, /Aufgaben/);
+});
+
+test('Tote müssen keine Aufgaben mehr machen: gilt auch nach Rauswurf, Wiederbeleben zählt wieder', () => {
+  const { game, crew } = started(6, { tasksPerPlayer: 2, discussionTime: 0 });
+  game.callMeeting(crew[0].id, null, 0);
+  for (const p of game.participants().filter((x) => x.alive)) game.vote(p.id, crew[1].id, 1);
+  assert.equal(crew[1].ejected, true);
+  assert.equal(game.taskProgress().total, 8);
+  game.advanceMeeting(2);
+  game.setAlive(crew[1].id, true, 3);
+  assert.equal(game.taskProgress().total, 10);
 });

@@ -536,3 +536,4 @@ textarea:focus { border-color: var(--primary); }
 .imp-mate.is-dead { opacity: 0.5; }
 .secret .imp-team { background: #0004; }
 .vote .voted.mate { color: var(--impostor); }
+.waived { color: var(--muted); font-size: 0.75rem; }

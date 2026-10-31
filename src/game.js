@@ -22,23 +22,23 @@ const COLORS = [
 ];
 
 const DEFAULT_TASKS = [
-  { name: 'Putten', location: '', description: 'Putte die 3 pinken Golfbälle ins Ziel.' },
-  { name: 'Müll wegwerfen', location: '', description: 'Wirf 5 Papierkügelchen mit deiner nicht dominanten Hand in den Mülleimer.' },
-  { name: 'Müll rausbringen', location: '', description: 'Bring den Mülleimer mit den 5 Papierkügelchen raus.' },
-  { name: 'Treibstoff nachfüllen', location: 'Bad (Mitte) → Bad (oben)', description: 'Bring 1 Liter Wasser vom Bad in der Mitte ins Bad oben.' },
-  { name: 'Farben sortieren', location: '', description: 'Sortiere die bunten Gegenstände nach Farben.' },
-  { name: 'Lego-Modell bauen', location: '', description: 'Baue das Lego-Modell nach der Vorlage zusammen.' },
-  { name: 'Würfeln', location: '', description: 'Würfle so lange mit zwei Würfeln, bis du einen 6er-Pasch hast.' },
-  { name: 'Knoten lösen', location: '', description: 'Löse den Knoten im Seil vollständig auf.' },
-  { name: 'Kabel sortieren', location: '', description: 'Entwirre die Kabel und lege sie ordentlich nebeneinander.' },
-  { name: 'Gegenstände zählen', location: '', description: 'Zähle die Gegenstände im Behälter.' },
-  { name: 'Gegenstand finden', location: '', description: 'Finde den versteckten Gegenstand im Raum.' },
-  { name: 'Becherstapeln', location: '', description: 'Staple die Becher zu einer Pyramide und baue sie wieder ab.' },
-  { name: 'Münzen zählen', location: '', description: 'Zähle, wie viel Geld in den Münzen steckt.' },
-  { name: 'Ball versenken', location: '', description: 'Versenke den Ball im Ziel.' },
-  { name: 'Löffel-Transport', location: '', description: 'Trag den Gegenstand auf einem Löffel ans Ziel, ohne ihn fallen zu lassen.' },
-  { name: 'Mutter von Gewindestange', location: '', description: 'Dreh die Mutter ganz von der Gewindestange ab.' },
-  { name: 'Spiegelverkehrt schreiben', location: '', description: 'Schreibe deinen Vor- und Nachnamen spiegelverkehrt auf.' },
+  { name: 'Putten', location: '', description: 'Putte die 3 pinken Golfbälle ins Ziel.', photo: true },
+  { name: 'Müll wegwerfen', location: '', description: 'Wirf 5 Papierkügelchen mit deiner nicht dominanten Hand in den Mülleimer.', photo: true },
+  { name: 'Müll rausbringen', location: '', description: 'Bring den Mülleimer mit den 5 Papierkügelchen raus.', photo: true },
+  { name: 'Treibstoff nachfüllen', location: 'Bad (Mitte) → Bad (oben)', description: 'Bring 1 Liter Wasser vom Bad in der Mitte ins Bad oben.', photo: true },
+  { name: 'Farben sortieren', location: '', description: 'Sortiere die bunten Gegenstände nach Farben.', photo: true },
+  { name: 'Lego-Modell bauen', location: '', description: 'Baue das Lego-Modell nach der Vorlage zusammen.', photo: true },
+  { name: 'Würfeln', location: '', description: 'Würfle so lange mit zwei Würfeln, bis du einen 6er-Pasch hast.', photo: true },
+  { name: 'Knoten lösen', location: '', description: 'Löse den Knoten im Seil vollständig auf.', photo: true },
+  { name: 'Kabel sortieren', location: '', description: 'Entwirre die Kabel und lege sie ordentlich nebeneinander.', photo: true },
+  { name: 'Gegenstände zählen', location: '', description: 'Zähle die Gegenstände im Behälter.', photo: true },
+  { name: 'Gegenstand finden', location: '', description: 'Finde den versteckten Gegenstand im Raum.', photo: true },
+  { name: 'Becherstapeln', location: '', description: 'Staple die Becher zu einer Pyramide und baue sie wieder ab.', photo: true },
+  { name: 'Münzen zählen', location: '', description: 'Zähle, wie viel Geld in den Münzen steckt.', photo: true },
+  { name: 'Ball versenken', location: '', description: 'Versenke den Ball im Ziel.', photo: true },
+  { name: 'Löffel-Transport', location: '', description: 'Trag den Gegenstand auf einem Löffel ans Ziel, ohne ihn fallen zu lassen.', photo: true },
+  { name: 'Mutter von Gewindestange', location: '', description: 'Dreh die Mutter ganz von der Gewindestange ab.', photo: true },
+  { name: 'Spiegelverkehrt schreiben', location: '', description: 'Schreibe deinen Vor- und Nachnamen spiegelverkehrt auf.', photo: true },
 ];
 
 const DEFAULT_SETTINGS = {
@@ -130,6 +130,7 @@ class Game {
       location: cleanText(t.location, 40),
       description: cleanText(t.description, MAX_DESCRIPTION),
       code: cleanText(t.code, 12),
+      photo: !!t.photo, // Beweisfoto nötig
       enabled: t.enabled !== false,
     }));
   }
@@ -154,6 +155,7 @@ class Game {
     this.events = [];
     this.meetingHistory = [];
     this.progressLog = [];
+    this.proofs = []; // Beweisfotos dieser Runde: { id, playerId, taskId, taskName, kind, at, status }
     for (const p of this.players.values()) {
       p.role = null;
       p.alive = true;
@@ -280,13 +282,14 @@ class Game {
     for (const p of this.players.values()) p.meetingsLeft = this.settings.emergencyMeetings;
   }
 
-  addTask({ name, location, code, description }) {
+  addTask({ name, location, code, description, photo }) {
     const task = {
       id: id(),
       name: cleanText(name, 60),
       location: cleanText(location, 40),
       description: cleanText(description, MAX_DESCRIPTION),
       code: cleanText(code, 12),
+      photo: !!photo,
       enabled: true,
     };
     if (!task.name) throw new GameError('Aufgabe braucht einen Namen.');
@@ -305,6 +308,7 @@ class Game {
     if ('location' in patch) t.location = cleanText(patch.location, 40);
     if ('description' in patch) t.description = cleanText(patch.description, MAX_DESCRIPTION);
     if ('code' in patch) t.code = cleanText(patch.code, 12);
+    if ('photo' in patch) t.photo = !!patch.photo;
     if ('enabled' in patch) t.enabled = !!patch.enabled;
   }
 
@@ -347,7 +351,7 @@ class Game {
       p.role = impostorSet.has(p) ? 'impostor' : 'crewmate';
       p.tasks = shuffle(enabledTasks)
         .slice(0, perPlayer)
-        .map((t) => ({ id: t.id, name: t.name, location: t.location, description: t.description, code: t.code, done: false }));
+        .map((t) => ({ id: t.id, name: t.name, location: t.location, description: t.description, code: t.code, photo: t.photo, done: false, rejected: false }));
       p.killReadyAt = now + this.settings.killCooldown * 1000;
     }
     this.sabotageReadyAt = now + this.settings.sabotageCooldown * 1000;
@@ -367,7 +371,7 @@ class Game {
     if (this.phase !== 'playing') throw new GameError('Das geht gerade nicht.');
   }
 
-  completeTask(playerId, taskId, code, now = Date.now()) {
+  completeTask(playerId, taskId, code, now = Date.now(), photoId = null) {
     const p = this.getPlayer(playerId);
     if (this.phase !== 'playing') throw new GameError('Aufgaben gehen nur während des Spiels.');
     const task = p.tasks.find((t) => t.id === taskId);
@@ -376,7 +380,10 @@ class Game {
     if (task.code && cleanText(code, 12).toLowerCase() !== task.code.toLowerCase()) {
       throw new GameError('Falscher Code. Schau nochmal am Aufgabenort nach!');
     }
+    if (task.photo && !photoId) throw new GameError('Für diese Aufgabe brauchst du ein Beweisfoto.');
     task.done = true;
+    task.rejected = false;
+    if (photoId) this.addProof(photoId, p, task.id, task.name, 'task', now);
     if (p.role === 'crewmate') {
       this.progressLog.push({ at: now, ...this.taskProgress() });
       this.logEvent(now, 'task', `${p.name} hat „${task.name}" erledigt`, { secret: true, players: [p.id] });
@@ -384,6 +391,32 @@ class Game {
       this.logEvent(now, 'fake-task', `${p.name} hat die Tarnaufgabe „${task.name}" abgehakt`, { secret: true, players: [p.id] });
     }
     this.checkWin(now);
+  }
+
+  addProof(photoId, p, taskId, taskName, kind, now) {
+    this.proofs.push({ id: photoId, playerId: p.id, taskId, taskName, kind, at: now, status: 'pending' });
+  }
+
+  /** Moderator prüft ein Beweisfoto. Abgelehnt = Aufgabe ist beim Spieler wieder offen. */
+  reviewProof(proofId, ok, now) {
+    const proof = this.proofs.find((x) => x.id === proofId);
+    if (!proof) throw new GameError('Foto nicht gefunden.');
+    if (ok) {
+      proof.status = 'ok';
+      return;
+    }
+    if (proof.kind === 'repair') throw new GameError('Reparatur-Fotos können nicht abgelehnt werden – der Reaktor ist schon repariert.');
+    if (this.phase !== 'playing' && this.phase !== 'meeting') throw new GameError('Das Spiel ist schon vorbei.');
+    const p = this.players.get(proof.playerId);
+    const task = p && p.tasks.find((t) => t.id === proof.taskId);
+    if (!task) throw new GameError('Aufgabe nicht mehr vorhanden.');
+    proof.status = 'rejected';
+    if (task.done) {
+      task.done = false;
+      task.rejected = true;
+      if (p.role === 'crewmate') this.progressLog.push({ at: now, ...this.taskProgress() });
+      this.logEvent(now, 'mod', `Moderator hat das Foto von ${p.name} für „${task.name}" abgelehnt`, { secret: true, players: [p.id] });
+    }
   }
 
   kill(impostorId, victimId, now) {
@@ -649,7 +682,7 @@ class Game {
     const tasks = {};
     assigned.forEach((pid, i) => {
       const t = picked.length ? picked[i % picked.length] : null;
-      tasks[pid] = t ? { name: t.name, location: t.location, description: t.description, code: t.code } : null;
+      tasks[pid] = t ? { name: t.name, location: t.location, description: t.description, code: t.code, photo: !!t.photo } : null;
     });
     this.sabotagesUsed += 1;
     this.sabotage = {
@@ -669,7 +702,7 @@ class Game {
     this.logEvent(now, 'sabotage-by', `Sabotage ausgelöst von ${imp.name}`, { secret: true, players: [imp.id] });
   }
 
-  fixSabotage(playerId, now, code = '') {
+  fixSabotage(playerId, now, code = '', photoId = null) {
     this.requirePlaying();
     const s = this.sabotage;
     if (!s) throw new GameError('Es gibt nichts zu reparieren.');
@@ -681,6 +714,8 @@ class Game {
     if (task && task.code && cleanText(code, 12).toLowerCase() !== task.code.toLowerCase()) {
       throw new GameError('Falscher Code. Schau nochmal am Aufgabenort nach!');
     }
+    if (task && task.photo && !photoId) throw new GameError('Für die Reparatur brauchst du ein Beweisfoto.');
+    if (photoId) this.addProof(photoId, p, null, task ? task.name : 'Reaktor-Reparatur', 'repair', now);
     s.fixedBy.push(p.id);
     if (s.fixedBy.length >= s.needed) this.finishRepair(now);
   }
@@ -807,7 +842,7 @@ class Game {
           fixedBy: this.sabotage.fixedBy,
           // Reparatur-Aufgabe je Spieler – ohne Code, der steht nur am Aufgabenort
           tasks: Object.fromEntries(Object.entries(this.sabotage.tasks).map(([pid, t]) => [pid, t
-            ? { name: t.name, location: t.location, description: t.description, needsCode: !!t.code } : null])),
+            ? { name: t.name, location: t.location, description: t.description, needsCode: !!t.code, needsPhoto: !!t.photo } : null])),
         }
         : null,
       sabotagesLeft: this.phase === 'lobby' ? this.settings.sabotagesPerRound : this.settings.sabotagesPerRound - this.sabotagesUsed,
@@ -836,7 +871,7 @@ class Game {
       role: me.role,
       alive: me.alive,
       ejected: me.ejected,
-      tasks: me.tasks.map((t) => ({ id: t.id, name: t.name, location: t.location, description: t.description, needsCode: !!t.code, done: t.done })),
+      tasks: me.tasks.map((t) => ({ id: t.id, name: t.name, location: t.location, description: t.description, needsCode: !!t.code, needsPhoto: !!t.photo, done: t.done, rejected: !!t.rejected })),
       meetingsLeft: me.meetingsLeft,
       killReadyAt: isImpostor ? me.killReadyAt : null,
       sabotageReadyAt: isImpostor ? this.sabotageReadyAt : null,
@@ -874,6 +909,7 @@ class Game {
     view.meetingHistory = this.meetingHistory;
     view.progressLog = this.progressLog;
     view.pendingKills = this.pendingKills;
+    view.proofs = this.proofs;
     return view;
   }
 

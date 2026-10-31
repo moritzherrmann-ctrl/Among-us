@@ -50,10 +50,12 @@
             <input name="name" maxlength="60" placeholder="Aufgabe, z. B. Kabel verbinden" required>
             <input name="location" maxlength="40" placeholder="Ort, z. B. Küche">
             <input name="code" maxlength="12" placeholder="Code (optional)">
+            <label class="photo-toggle form-photo"><input type="checkbox" name="photo" checked> 📷 Beweisfoto nötig</label>
             <button class="btn primary" type="submit">➕ Hinzufügen</button>
             <textarea name="description" maxlength="300" rows="2" placeholder="Beschreibung (optional): Was genau ist zu tun? z. B. „Verbinde die 4 Kabel nach Farben“"></textarea>
           </div>
-          <p class="hint">Mit Code: Lege am Aufgabenort einen Zettel mit dem Code aus. Spieler müssen ihn eingeben, um die Aufgabe abzuhaken.</p>
+          <p class="hint">Mit Code: Lege am Aufgabenort einen Zettel mit dem Code aus. Spieler müssen ihn eingeben, um die Aufgabe abzuhaken.
+            Mit 📷: Spieler müssen beim Abhaken ein Beweisfoto machen. Du siehst alle Fotos im Tab „Spiel“ und kannst sie ablehnen.</p>
         </form>
         <div id="task-list"></div>
       </div>

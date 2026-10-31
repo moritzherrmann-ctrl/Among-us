@@ -11,6 +11,7 @@ Ein Gerät (Laptop/PC) startet den Server, alle anderen Handys/Tablets verbinden
 - Mit Namen beitreten, Farbe wählen, automatische Wiederverbindung (auch nach Neuladen)
 - Geheime Rollen-Anzeige (Crewmate / Impostor) – Impostor sehen ihre Komplizen
 - Eigene Aufgabenliste mit Ort und Beschreibung, optional mit **Code-Prüfung** (Zettel am Aufgabenort)
+- 📷 **Beweisfotos**: Bei Aufgaben mit Fotopflicht macht man beim Abhaken ein Foto mit der Handy-Kamera
 - Gemeinsamer Aufgaben-Fortschrittsbalken
 - 🚨 Leiche melden, 📣 Notfall-Meeting (begrenzt), 💀 „Ich wurde getötet"
 - Impostor: 🔪 Opfer aus einer Liste auswählen (mit Cooldown, optional stirbt das Opfer erst nach
@@ -23,6 +24,9 @@ Ein Gerät (Laptop/PC) startet den Server, alle anderen Handys/Tablets verbinden
 - **Spielerauswahl**: wer spielt mit, Impostor fest einteilen, umbenennen, entfernen
 - **Aufgabenauswahl**: Katalog bearbeiten, Aufgaben an/aus, eigene Aufgaben mit Ort, Beschreibung & Code anlegen,
   „Standard-Aufgaben laden“ ersetzt den Katalog durch die 17 mitgelieferten Aufgaben
+- **Beweisfotos**: pro Aufgabe „📷 Foto“ an/aus (oder für alle auf einmal). Im Tab „Spiel“ zeigt eine
+  Galerie alle Fotos der Runde; ein abgelehntes Foto macht die Aufgabe beim Spieler wieder offen.
+  Fotos werden verkleinert in `data/photos/` gespeichert und sind nur mit Moderator-PIN abrufbar.
 - **Einstellungen**: Anzahl Impostor, Aufgaben pro Spieler, Kill-Cooldown, Verzögerung bis zum Tod,
   Diskussions-/Abstimmungszeit, Notfall-Meetings, anonyme Abstimmung, Rauswurf bestätigen,
   Sabotagen pro Runde, Anzahl ausgeloster Reparierer, Sabotage-Zeiten …

@@ -2,10 +2,13 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { Game, GameError } = require('../src/game');
+const { Game, GameError, DEFAULT_TASKS } = require('../src/game');
+
+// Für die allgemeinen Tests: Standard-Aufgaben ohne Fotopflicht
+const NO_PHOTO_TASKS = DEFAULT_TASKS.map((t) => ({ ...t, photo: false }));
 
 function setup(n = 5, settings = {}) {
-  const game = new Game({ settings: { discussionTime: 10, votingTime: 20, resultTime: 5, manualMeetingStart: false, ...settings } });
+  const game = new Game({ tasks: NO_PHOTO_TASKS, settings: { discussionTime: 10, votingTime: 20, resultTime: 5, manualMeetingStart: false, ...settings } });
   const players = [];
   for (let i = 0; i < n; i++) players.push(game.join(`P${i}`));
   return { game, players };
@@ -316,4 +319,40 @@ test('Demomodus: Platzhalter statt echter Aufgaben, auch bei der Reparatur', () 
   assert.ok(![...real].some((n) => view.includes(n)));
   game.startSabotage(impostors[0].id, 0);
   assert.ok(Object.values(game.sabotage.tasks).every((t) => t.name.startsWith('Demo-Reparatur') && !t.code));
+});
+
+test('Beweisfoto: Aufgabe mit Fotopflicht braucht ein Foto, Moderator kann ablehnen', () => {
+  const game = new Game({ tasks: [{ name: 'Würfeln', location: 'Tisch', photo: true }] });
+  const ps = ['a', 'b', 'c', 'd', 'e'].map((n) => game.join(n));
+  game.start(0);
+  const p = ps.find((x) => x.role === 'crewmate');
+  const t = p.tasks[0];
+  assert.equal(game.viewFor(p.id, 0).me.tasks[0].needsPhoto, true);
+  assert.throws(() => game.completeTask(p.id, t.id, '', 1), /Beweisfoto/);
+  game.completeTask(p.id, t.id, '', 1, 'abc123abc123');
+  assert.equal(t.done, true);
+  assert.equal(game.proofs.length, 1);
+  assert.equal(game.moderatorView(2).proofs[0].taskName, 'Würfeln');
+  game.reviewProof('abc123abc123', false, 3);
+  assert.equal(t.done, false);
+  assert.equal(game.viewFor(p.id, 3).me.tasks[0].rejected, true);
+  assert.equal(game.proofs[0].status, 'rejected');
+  game.completeTask(p.id, t.id, '', 4, 'def456def456');
+  assert.equal(game.viewFor(p.id, 4).me.tasks[0].rejected, false);
+  game.reviewProof('def456def456', true, 5);
+  assert.equal(game.proofs[1].status, 'ok');
+});
+
+test('Beweisfoto: auch bei der Reaktor-Reparatur, wenn die Aufgabe es verlangt', () => {
+  const game = new Game({ settings: { sabotageCooldown: 0 }, tasks: [{ name: 'Putten', photo: true }, { name: 'Würfeln', photo: true }] });
+  const ps = ['a', 'b', 'c', 'd', 'e'].map((n) => game.join(n));
+  game.start(0);
+  game.startSabotage(ps.find((x) => x.role === 'impostor').id, 0);
+  const [f1, f2] = game.sabotage.assigned;
+  assert.equal(game.viewFor(f1, 0).sabotage.tasks[f1].needsPhoto, true);
+  assert.throws(() => game.fixSabotage(f1, 1), /Beweisfoto/);
+  game.fixSabotage(f1, 1, '', 'aaaaaaaaaaaa');
+  game.fixSabotage(f2, 2, '', 'bbbbbbbbbbbb');
+  assert.equal(game.sabotage, null);
+  assert.throws(() => game.reviewProof('aaaaaaaaaaaa', false, 3), /nicht abgelehnt/);
 });

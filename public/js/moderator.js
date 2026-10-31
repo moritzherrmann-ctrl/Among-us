@@ -205,6 +205,7 @@ function renderRunning() {
         <tbody>${rows}</tbody>
       </table></div>
     </div>
+    ${proofGallery()}
     <div class="card">
       <h3>Steuerung</h3>
       <div class="actions">
@@ -227,7 +228,51 @@ function renderEnded() {
       <h3>Impostor</h3><div class="player-grid">${list('impostor')}</div>
       <h3>Crew</h3><div class="player-grid">${list('crewmate')}</div>
       <button class="btn primary big" data-action="lobby">🔁 Zurück zur Lobby</button>
-    </div>`;
+    </div>
+    ${proofGallery()}`;
+}
+
+function photoUrl(id) {
+  let pin = '';
+  try { pin = localStorage.getItem(PIN_KEY) || ''; } catch { /* egal */ }
+  return `/api/photo/${id}?pin=${encodeURIComponent(pin)}`;
+}
+
+const PROOF_STATUS = { pending: '⏳ ungeprüft', ok: '✅ geprüft', rejected: '❌ abgelehnt' };
+
+/** Beweisfotos der Runde, neueste zuerst; ungeprüfte kann der Moderator annehmen oder ablehnen. */
+function proofGallery() {
+  const proofs = (state.proofs || []).slice().reverse();
+  if (!proofs.length) return '';
+  const open = proofs.filter((p) => p.status === 'pending').length;
+  const running = state.phase === 'playing' || state.phase === 'meeting';
+  return `<div class="card">
+    <h3>📷 Beweisfotos (${proofs.length})${open ? ` · <span class="open-count">${open} ungeprüft</span>` : ''}</h3>
+    <div class="proof-grid">${proofs.map((pr) => {
+      const p = playerById(pr.playerId);
+      const at = state.startedAt ? clockText(pr.at - state.startedAt) : '';
+      const canReject = pr.status === 'pending' && pr.kind === 'task' && running;
+      return `<div class="proof ${pr.status}">
+        <button class="proof-img" data-action="photo-view" data-id="${pr.id}" title="Groß anzeigen">
+          <img src="${photoUrl(pr.id)}" loading="lazy" alt="Beweisfoto von ${esc(p?.name || '?')} für ${esc(pr.taskName)}">
+        </button>
+        <div class="proof-info">
+          <b>${esc(p?.name || '?')}</b>
+          <small>${esc(pr.taskName)}${pr.kind === 'repair' ? ' (Reparatur)' : ''}${at ? ` · ${at}` : ''}</small>
+          <span class="proof-status">${PROOF_STATUS[pr.status]}${p && p.role === 'impostor' ? ' · Tarnaufgabe' : ''}</span>
+        </div>
+        ${pr.status === 'pending' ? `<div class="proof-actions">
+          <button class="btn small secondary" data-action="photo-ok" data-id="${pr.id}">✓ Passt</button>
+          ${canReject ? `<button class="btn small danger" data-action="photo-reject" data-id="${pr.id}">✗ Ablehnen</button>` : ''}
+        </div>` : ''}
+      </div>`;
+    }).join('')}</div>
+  </div>`;
+}
+
+function clockText(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
 function renderPlayers() {
@@ -259,6 +304,8 @@ function renderTasks() {
       <div class="row">
         <button class="btn small secondary" data-action="tasks-all" data-enabled="1">Alle an</button>
         <button class="btn small secondary" data-action="tasks-all" data-enabled="0">Alle aus</button>
+        <button class="btn small secondary" data-action="tasks-photo" data-photo="1">📷 Foto bei allen</button>
+        <button class="btn small secondary" data-action="tasks-photo" data-photo="0">📷 bei keiner</button>
         <button class="btn small secondary" data-action="tasks-reset">↺ Standard-Aufgaben laden</button>
       </div>
     </div>
@@ -269,6 +316,7 @@ function renderTasks() {
         <input data-field="name" data-id="${t.id}" value="${esc(t.name)}" maxlength="60" placeholder="Aufgabe">
         <input data-field="location" data-id="${t.id}" value="${esc(t.location)}" maxlength="40" placeholder="Ort">
         <input data-field="code" data-id="${t.id}" value="${esc(t.code)}" maxlength="12" placeholder="Code">
+        <label class="photo-toggle" title="Beweisfoto nötig"><input type="checkbox" data-field="photo" data-id="${t.id}" ${t.photo ? 'checked' : ''}> 📷 Foto</label>
         <button class="btn small danger" data-action="task-remove" data-id="${t.id}" title="löschen">🗑</button>
         <textarea data-field="description" data-id="${t.id}" maxlength="300" rows="2" placeholder="Beschreibung: Was genau ist zu tun?">${esc(t.description)}</textarea>
       </li>`).join('')}</ul>
@@ -299,7 +347,7 @@ $('#tabs').addEventListener('click', (e) => {
   document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('hidden', t.id !== `tab-${activeTab}`));
 });
 
-$('#dash').addEventListener('click', async (e) => {
+async function onDashClick(e) {
   const btn = e.target.closest('button[data-action]');
   if (!btn || btn.disabled) return;
   const id = btn.dataset.id;
@@ -350,11 +398,43 @@ $('#dash').addEventListener('click', async (e) => {
         if (res.ok) toast('Standard-Aufgaben geladen', 'success');
       }
       break;
+    case 'tasks-photo':
+      send('mod:task:photo-all', { photo: btn.dataset.photo === '1' });
+      break;
+    case 'photo-ok':
+      send('mod:photo:review', { id, ok: true });
+      break;
+    case 'photo-reject':
+      if (await confirmDialog('Foto ablehnen? Die Aufgabe ist dann beim Spieler wieder offen und er bekommt einen Hinweis.', { okText: 'Ablehnen', danger: true })) {
+        closeModal();
+        send('mod:photo:review', { id, ok: false });
+      }
+      break;
+    case 'photo-view': {
+      const pr = (state.proofs || []).find((x) => x.id === id);
+      const who = pr ? playerById(pr.playerId) : null;
+      const canReject = pr && pr.status === 'pending' && pr.kind === 'task' && (state.phase === 'playing' || state.phase === 'meeting');
+      openModal(`
+        <h2>${esc(who?.name || '?')}: ${esc(pr?.taskName || '')}</h2>
+        <img class="photo-big" src="${photoUrl(id)}" alt="Beweisfoto">
+        <p>${pr ? PROOF_STATUS[pr.status] : ''}</p>
+        <div class="row">
+          <button class="btn secondary" data-close>Schließen</button>
+          ${pr && pr.status === 'pending' ? `<button class="btn primary" data-action="photo-ok" data-id="${id}" data-close>✓ Passt</button>` : ''}
+          ${canReject ? `<button class="btn danger" data-action="photo-reject" data-id="${id}">✗ Ablehnen</button>` : ''}
+        </div>`);
+      break;
+    }
     case 'tasks-all':
       send('mod:task:all', { enabled: btn.dataset.enabled === '1' });
       break;
     default:
   }
+}
+$('#dash').addEventListener('click', onDashClick);
+// Knöpfe in Dialogfenstern (z. B. Foto groß anzeigen) liegen außerhalb von #dash
+document.body.addEventListener('click', (e) => {
+  if (e.target.closest('.modal-backdrop')) onDashClick(e);
 });
 
 $('#dash').addEventListener('change', (e) => {
@@ -386,6 +466,7 @@ $('#task-form').addEventListener('submit', async (e) => {
     location: form.location.value,
     description: form.description.value,
     code: form.code.value,
+    photo: form.photo.checked,
   });
   if (res.ok) {
     form.reset();

@@ -78,6 +78,16 @@ function detectEvents(prev, next) {
   if (prev && prev.meeting && next.meeting && prev.meeting.id === next.meeting.id
     && prev.meeting.stage === 'gathering' && next.meeting.stage !== 'gathering') sounds.notify();
   if (next.sabotage && (!prev || !prev.sabotage || prev.sabotage.id !== next.sabotage.id)) sounds.sabotage();
+  // Moderator hat ein Beweisfoto abgelehnt
+  if (prev && prev.me) {
+    for (const t of me.tasks) {
+      const before = prev.me.tasks.find((x) => x.id === t.id);
+      if (t.rejected && before && !before.rejected) {
+        sounds.notify();
+        toast(`❌ Dein Foto für „${t.name}“ wurde abgelehnt. Bitte nochmal erledigen!`, 'error', 8000);
+      }
+    }
+  }
   // Ausgelost (auch als Ersatz für einen gestorbenen Reparierer)
   if (me.mustFix && (!prev || !prev.me || !prev.me.mustFix)) {
     vibrate([400, 150, 400, 150, 400]);
@@ -248,8 +258,9 @@ function renderPlaying(me) {
       <li class="task ${t.done ? 'done' : ''}">
         <button data-action="task" data-task="${t.id}" ${t.done ? 'disabled' : ''}>
           <span class="check">${t.done ? '✔' : ''}</span>
-          <span class="task-text"><b>${esc(t.name)}</b>${t.location ? `<small>📍 ${esc(t.location)}</small>` : ''}${t.description && !t.done ? `<span class="task-desc">${esc(t.description)}</span>` : ''}</span>
+          <span class="task-text"><b>${esc(t.name)}</b>${t.location ? `<small>📍 ${esc(t.location)}</small>` : ''}${t.description && !t.done ? `<span class="task-desc">${esc(t.description)}</span>` : ''}${t.rejected && !t.done ? '<span class="task-rejected">❌ Foto abgelehnt – bitte nochmal erledigen</span>' : ''}</span>
           ${t.needsCode && !t.done ? '<span class="tag">Code</span>' : ''}
+          ${t.needsPhoto && !t.done ? '<span class="tag photo-tag">📷</span>' : ''}
         </button>
       </li>`).join('')}</ul>
     ${!me.alive ? '<p class="hint">Als Geist kannst du weiter Aufgaben erledigen.</p>' : ''}
@@ -462,56 +473,121 @@ async function onAction(btn) {
   }
 }
 
-function completeTask(task) {
-  if (!task || task.done) return;
+/** Foto verkleinern (max. 1280 px, JPEG), damit es schnell übers WLAN geht. */
+async function shrinkImage(file, max = 1280, quality = 0.7) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error('Bild konnte nicht geladen werden'));
+      img.src = url;
+    });
+    const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', quality);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Gemeinsames Fenster zum Abschließen einer Aufgabe oder Reparatur (Code und/oder Beweisfoto). */
+function taskDialog(task, { title, question, okText, okClass, event, payload, successText }) {
+  const needsPhoto = !!task.needsPhoto;
   const modal = openModal(`
-    <h2>${esc(task.name)}</h2>
+    <h2>${esc(title)}</h2>
     ${task.location ? `<p>📍 ${esc(task.location)}</p>` : ''}
     ${task.description ? `<p class="task-desc">${esc(task.description)}</p>` : ''}
     ${task.needsCode
       ? `<p>Gib den Code ein, den du am Aufgabenort findest:</p>
          <input id="task-code" autocomplete="off" autocapitalize="characters" placeholder="Code">`
-      : '<p>Hast du die Aufgabe im echten Leben erledigt?</p>'}
+      : needsPhoto ? '' : `<p>${esc(question)}</p>`}
+    ${needsPhoto ? `<div class="photo-box">
+        <p>Mach ein <b>Beweisfoto</b> von der erledigten Aufgabe:</p>
+        <img id="photo-preview" class="photo-preview" alt="Vorschau des Beweisfotos" hidden>
+        <label class="btn secondary photo-btn" id="photo-label">
+          <input type="file" accept="image/*" capture="environment" id="photo-input" hidden>
+          <span>📷 Foto aufnehmen</span>
+        </label>
+      </div>` : ''}
     <div class="row">
       <button class="btn secondary" data-close>Abbrechen</button>
-      <button class="btn primary" id="task-ok">Erledigt ✔</button>
+      <button class="btn ${okClass}" id="task-ok" ${needsPhoto ? 'disabled' : ''}>${esc(okText)}</button>
     </div>`, { onOpen: (m) => m.querySelector('#task-code')?.focus() });
+  const ok = modal.querySelector('#task-ok');
+  let photo = null;
+  modal.querySelector('#photo-input')?.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const label = modal.querySelector('#photo-label span');
+    label.textContent = 'Foto wird vorbereitet …';
+    try {
+      photo = await shrinkImage(file);
+      const preview = modal.querySelector('#photo-preview');
+      preview.src = photo;
+      preview.hidden = false;
+      label.textContent = '📷 Neues Foto aufnehmen';
+      ok.disabled = false;
+    } catch {
+      label.textContent = '📷 Foto aufnehmen';
+      toast('Das Foto konnte nicht gelesen werden. Bitte nochmal versuchen.', 'error');
+    }
+  });
   const submit = async () => {
+    if (ok.disabled) return;
+    if (needsPhoto && !photo) return toast('Bitte zuerst ein Beweisfoto aufnehmen.', 'error');
+    ok.disabled = true;
+    const before = ok.textContent;
+    if (photo) ok.textContent = 'Wird gesendet …';
     const code = modal.querySelector('#task-code')?.value || '';
-    const res = await send('task:complete', { taskId: task.id, code });
+    const res = await send(event, { ...payload, code, photo });
+    ok.textContent = before;
+    ok.disabled = false;
     if (res.ok) {
       closeModal();
       sounds.task();
-      toast('Aufgabe erledigt! ✅', 'success');
+      toast(successText, 'success');
     }
   };
-  modal.querySelector('#task-ok').addEventListener('click', submit);
+  ok.addEventListener('click', submit);
   modal.querySelector('#task-code')?.addEventListener('keydown', (e) => e.key === 'Enter' && submit());
 }
 
+function completeTask(task) {
+  if (!task || task.done) return;
+  taskDialog(task, {
+    title: task.name,
+    question: 'Hast du die Aufgabe im echten Leben erledigt?',
+    okText: 'Erledigt ✔',
+    okClass: 'primary',
+    event: 'task:complete',
+    payload: { taskId: task.id },
+    successText: 'Aufgabe erledigt! ✅',
+  });
+}
+
 function repairReactor(task) {
-  const fix = async (code) => {
-    const res = await send('sabotage:fix', { code });
-    if (res.ok) {
-      closeModal();
-      sounds.task();
-      toast('Repariert! ✅', 'success');
-    }
-  };
-  if (!task || !task.needsCode) return fix('');
-  const modal = openModal(`
-    <h2>🔧 ${esc(task.name)}</h2>
-    ${task.location ? `<p>📍 ${esc(task.location)}</p>` : ''}
-    ${task.description ? `<p class="task-desc">${esc(task.description)}</p>` : ''}
-    <p>Gib den Code ein, den du am Aufgabenort findest:</p>
-    <input id="repair-code" autocomplete="off" autocapitalize="characters" placeholder="Code">
-    <div class="row">
-      <button class="btn secondary" data-close>Abbrechen</button>
-      <button class="btn danger" id="repair-ok">Reparieren</button>
-    </div>`, { onOpen: (m) => m.querySelector('#repair-code').focus() });
-  const submit = () => fix(modal.querySelector('#repair-code').value);
-  modal.querySelector('#repair-ok').addEventListener('click', submit);
-  modal.querySelector('#repair-code').addEventListener('keydown', (e) => e.key === 'Enter' && submit());
+  if (!task || (!task.needsCode && !task.needsPhoto)) {
+    send('sabotage:fix', {}).then((res) => {
+      if (res.ok) {
+        sounds.task();
+        toast('Repariert! ✅', 'success');
+      }
+    });
+    return;
+  }
+  taskDialog(task, {
+    title: `🔧 ${task.name}`,
+    question: '',
+    okText: 'Reparieren',
+    okClass: 'danger',
+    event: 'sabotage:fix',
+    payload: {},
+    successText: 'Repariert! ✅',
+  });
 }
 
 function pickPlayer(title, players, okText, onPick) {

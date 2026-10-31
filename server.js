@@ -14,6 +14,36 @@ const PORT = Number(process.env.PORT) || 3000;
 const MOD_PIN = process.env.MOD_PIN || String(crypto.randomInt(1000, 10000));
 const DATA_DIR = path.join(__dirname, 'data');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+const PHOTO_DIR = path.join(DATA_DIR, 'photos');
+const PHOTO_ID = /^[a-f0-9]{12}$/;
+const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
+
+/** Speichert ein Beweisfoto (data:-URL) und gibt seine ID zurück. */
+function savePhoto(dataUrl) {
+  const match = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ''));
+  if (!match) throw new GameError('Das Foto konnte nicht gelesen werden. Bitte nochmal aufnehmen.');
+  const bytes = Buffer.from(match[2], 'base64');
+  if (bytes.length > MAX_PHOTO_BYTES) throw new GameError('Das Foto ist zu groß.');
+  const photoId = crypto.randomBytes(6).toString('hex');
+  fs.mkdirSync(PHOTO_DIR, { recursive: true });
+  fs.writeFileSync(path.join(PHOTO_DIR, `${photoId}.jpg`), bytes);
+  return photoId;
+}
+
+function removePhoto(photoId) {
+  fs.rm(path.join(PHOTO_DIR, `${photoId}.jpg`), { force: true }, () => {});
+}
+
+/** Aktion mit optionalem Foto ausführen; schlägt sie fehl, wird das Foto wieder gelöscht. */
+function withPhoto(photo, fn) {
+  const photoId = photo ? savePhoto(photo) : null;
+  try {
+    return fn(photoId);
+  } catch (err) {
+    if (photoId) removePhoto(photoId);
+    throw err;
+  }
+}
 
 function loadConfig() {
   try {
@@ -45,7 +75,8 @@ function lanAddresses() {
 const game = new Game(loadConfig());
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+// Beweisfotos werden als verkleinertes JPEG über die Verbindung geschickt
+const io = new Server(server, { maxHttpBufferSize: 8 * 1024 * 1024 });
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/moderator', (req, res) => res.sendFile(path.join(__dirname, 'public', 'moderator.html')));
@@ -63,6 +94,14 @@ app.get('/api/join-info', async (req, res) => {
     qr,
     moderatorUrl: unique[0] ? `${unique[0]}moderator` : null,
     liveUrl: unique[0] ? `${unique[0]}live` : null,
+  });
+});
+
+// Beweisfotos nur für den Moderator (PIN als Parameter, weil <img> keine Header schicken kann)
+app.get('/api/photo/:id', (req, res) => {
+  if (String(req.query.pin) !== MOD_PIN || !PHOTO_ID.test(req.params.id)) return res.status(403).end();
+  res.sendFile(path.join(PHOTO_DIR, `${req.params.id}.jpg`), (err) => {
+    if (err && !res.headersSent) res.status(404).end();
   });
 });
 
@@ -134,13 +173,15 @@ io.on('connection', (socket) => {
 
   socket.on('player:rename', handle(socket, requirePlayer(({ name }) => game.renamePlayer(playerId, name))));
   socket.on('player:color', handle(socket, requirePlayer(({ color }) => game.setColor(playerId, color))));
-  socket.on('task:complete', handle(socket, requirePlayer(({ taskId, code }, now) => game.completeTask(playerId, taskId, code, now))));
+  socket.on('task:complete', handle(socket, requirePlayer(({ taskId, code, photo }, now) => withPhoto(photo,
+    (photoId) => game.completeTask(playerId, taskId, code, now, photoId)))));
   socket.on('player:kill', handle(socket, requirePlayer(({ victimId }, now) => game.kill(playerId, victimId, now))));
   socket.on('player:died', handle(socket, requirePlayer((_, now) => game.reportOwnDeath(playerId, now))));
   socket.on('meeting:call', handle(socket, requirePlayer(({ bodyId }, now) => game.callMeeting(playerId, bodyId || null, now))));
   socket.on('meeting:vote', handle(socket, requirePlayer(({ targetId }, now) => game.vote(playerId, targetId, now))));
   socket.on('sabotage:start', handle(socket, requirePlayer((_, now) => game.startSabotage(playerId, now))));
-  socket.on('sabotage:fix', handle(socket, requirePlayer(({ code }, now) => game.fixSabotage(playerId, now, code))));
+  socket.on('sabotage:fix', handle(socket, requirePlayer(({ code, photo }, now) => withPhoto(photo,
+    (photoId) => game.fixSabotage(playerId, now, code, photoId)))));
 
   // --- Moderator ---
   socket.on('mod:login', handle(socket, ({ pin }) => {
@@ -153,6 +194,10 @@ io.on('connection', (socket) => {
   socket.on('mod:task:add', handle(socket, requireMod((task) => { game.addTask(task); }), { persist: true }));
   socket.on('mod:task:update', handle(socket, requireMod(({ id, ...patch }) => game.updateTask(id, patch)), { persist: true }));
   socket.on('mod:task:remove', handle(socket, requireMod(({ id }) => game.removeTask(id)), { persist: true }));
+  socket.on('mod:photo:review', handle(socket, requireMod(({ id, ok }, now) => game.reviewProof(id, !!ok, now))));
+  socket.on('mod:task:photo-all', handle(socket, requireMod(({ photo }) => {
+    for (const t of game.taskCatalog) t.photo = !!photo;
+  }), { persist: true }));
   socket.on('mod:task:reset', handle(socket, requireMod(() => game.resetTasks()), { persist: true }));
   socket.on('mod:task:all', handle(socket, requireMod(({ enabled }) => {
     for (const t of game.taskCatalog) t.enabled = !!enabled;

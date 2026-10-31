@@ -356,3 +356,33 @@ test('Beweisfoto: auch bei der Reaktor-Reparatur, wenn die Aufgabe es verlangt',
   assert.equal(game.sabotage, null);
   assert.throws(() => game.reviewProof('aaaaaaaaaaaa', false, 3), /nicht abgelehnt/);
 });
+
+test('Varianten: jeder bekommt eine eigene, keine doppelt solange genug da sind', () => {
+  const game = new Game({
+    settings: { tasksPerPlayer: 1, sabotageCooldown: 0, sabotageFixesNeeded: 2 },
+    tasks: [{ name: 'Gegenstand finden', location: 'Haus', variants: 'Roter Ball\nSchlüssel\nTeddy\nTaschenlampe\nLöffel\nRoter Ball\n  \nBuch\nKerze' }],
+  });
+  assert.deepEqual(game.taskCatalog[0].variants, ['Roter Ball', 'Schlüssel', 'Teddy', 'Taschenlampe', 'Löffel', 'Buch', 'Kerze']);
+  const ps = ['a', 'b', 'c', 'd', 'e'].map((n) => game.join(n));
+  game.start(0);
+  const got = ps.map((p) => p.tasks[0].variant);
+  assert.equal(new Set(got).size, 5); // alle verschieden
+  assert.ok(got.every((v) => game.taskCatalog[0].variants.includes(v)));
+  assert.equal(game.viewFor(ps[0].id, 0).me.tasks[0].variant, got[0]);
+  // Reparatur nimmt die übrigen zwei Varianten
+  game.startSabotage(ps.find((p) => p.role === 'impostor').id, 0);
+  const repair = Object.values(game.sabotage.tasks).map((t) => t.variant);
+  assert.equal(new Set([...got, ...repair]).size, 7);
+});
+
+test('Varianten: bei mehr Spielern als Varianten wird gleichmäßig wiederholt', () => {
+  const game = new Game({ settings: { tasksPerPlayer: 1 }, tasks: [{ name: 'Suchen', variants: ['A', 'B'] }] });
+  const ps = ['a', 'b', 'c', 'd', 'e'].map((n) => game.join(n));
+  game.start(0);
+  const counts = {};
+  for (const p of ps) counts[p.tasks[0].variant] = (counts[p.tasks[0].variant] || 0) + 1;
+  assert.deepEqual(Object.values(counts).sort(), [2, 3]);
+  game.updateTask(game.taskCatalog[0].id, { variants: ['X'] });
+  assert.deepEqual(game.taskCatalog[0].variants, ['X']);
+  assert.deepEqual(game.config().tasks[0].variants, ['X']);
+});

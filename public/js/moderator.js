@@ -165,7 +165,7 @@ function renderRunning() {
       <p>Ausgelost (${s.fixes}/${s.needed} repariert):</p>
       <ul class="repair-list">${s.assigned.map((id) => {
         const t = s.tasks[id];
-        return `<li><b>${esc(playerById(id)?.name || '?')}</b> ${s.fixedBy.includes(id) ? '✅' : '⏳'}${t ? ` – ${esc(t.name)}${t.location ? ` (📍 ${esc(t.location)})` : ''}${t.description ? `<br><small>${esc(t.description)}</small>` : ''}` : ''}</li>`;
+        return `<li><b>${esc(playerById(id)?.name || '?')}</b> ${s.fixedBy.includes(id) ? '✅' : '⏳'}${t ? ` – ${esc(t.name)}${t.variant ? `: <b>${esc(t.variant)}</b>` : ''}${t.location ? ` (📍 ${esc(t.location)})` : ''}${t.description ? `<br><small>${esc(t.description)}</small>` : ''}` : ''}</li>`;
       }).join('')}</ul>
       <button class="btn secondary" data-action="end-sabotage">Sabotage beenden</button>
     </div>` : '';
@@ -319,6 +319,7 @@ function renderTasks() {
         <label class="photo-toggle" title="Beweisfoto nötig"><input type="checkbox" data-field="photo" data-id="${t.id}" ${t.photo ? 'checked' : ''}> 📷 Foto</label>
         <button class="btn small danger" data-action="task-remove" data-id="${t.id}" title="löschen">🗑</button>
         <textarea data-field="description" data-id="${t.id}" maxlength="300" rows="2" placeholder="Beschreibung: Was genau ist zu tun?">${esc(t.description)}</textarea>
+        <textarea class="variants" data-field="variants" data-id="${t.id}" rows="${Math.min(8, Math.max(2, (t.variants || []).length))}" placeholder="Varianten, eine pro Zeile (optional)" title="Jeder Spieler bekommt eine andere Variante, z. B. ein anderes Objekt zum Suchen">${esc((t.variants || []).join('\n'))}</textarea>
       </li>`).join('')}</ul>
   </div>`;
 }
@@ -465,6 +466,7 @@ $('#task-form').addEventListener('submit', async (e) => {
     name: form.name.value,
     location: form.location.value,
     description: form.description.value,
+    variants: form.variants.value,
     code: form.code.value,
     photo: form.photo.checked,
   });

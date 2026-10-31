@@ -89,6 +89,42 @@ const SETTING_LIMITS = {
 
 const MAX_NAME = 20;
 const MAX_DESCRIPTION = 300;
+const MAX_VARIANTS = 30;
+
+/** Varianten aus einer Liste oder aus Text (eine pro Zeile) lesen. */
+function cleanVariants(value) {
+  const list = Array.isArray(value) ? value : String(value ?? '').split(/\r?\n/);
+  const seen = new Set();
+  const out = [];
+  for (const v of list) {
+    const clean = cleanText(v, 60);
+    if (clean && !seen.has(clean.toLowerCase())) {
+      seen.add(clean.toLowerCase());
+      out.push(clean);
+    }
+  }
+  return out.slice(0, MAX_VARIANTS);
+}
+
+/** Anzeigename einer zugeteilten Aufgabe, z. B. „Gegenstand finden: Roter Ball". */
+function taskLabel(t) {
+  return t.variant ? `${t.name}: ${t.variant}` : t.name;
+}
+
+/**
+ * Verteilt Varianten so, dass möglichst niemand dieselbe bekommt: Es wird immer
+ * eine der bisher am seltensten vergebenen Varianten gewählt.
+ */
+function pickVariant(task, usage) {
+  if (!task.variants || !task.variants.length) return '';
+  if (!usage.has(task.id)) usage.set(task.id, new Map());
+  const counts = usage.get(task.id);
+  const min = Math.min(...task.variants.map((v) => counts.get(v) || 0));
+  const options = task.variants.filter((v) => (counts.get(v) || 0) === min);
+  const choice = options[crypto.randomInt(options.length)];
+  counts.set(choice, min + 1);
+  return choice;
+}
 
 function id() {
   return crypto.randomBytes(6).toString('hex');
@@ -131,6 +167,7 @@ class Game {
       description: cleanText(t.description, MAX_DESCRIPTION),
       code: cleanText(t.code, 12),
       photo: !!t.photo, // Beweisfoto nötig
+      variants: cleanVariants(t.variants), // z. B. verschiedene Gegenstände zum Suchen
       enabled: t.enabled !== false,
     }));
   }
@@ -147,6 +184,7 @@ class Game {
     this.sabotage = null;
     this.sabotageReadyAt = 0;
     this.sabotagesUsed = 0;
+    this.variantUsage = null; // wie oft welche Aufgaben-Variante vergeben wurde
     this.pendingKills = []; // verzögerte Kills: { impostorId, victimId, at, diesAt }
     this.winner = null;
     this.startedAt = null;
@@ -282,7 +320,7 @@ class Game {
     for (const p of this.players.values()) p.meetingsLeft = this.settings.emergencyMeetings;
   }
 
-  addTask({ name, location, code, description, photo }) {
+  addTask({ name, location, code, description, photo, variants }) {
     const task = {
       id: id(),
       name: cleanText(name, 60),
@@ -290,6 +328,7 @@ class Game {
       description: cleanText(description, MAX_DESCRIPTION),
       code: cleanText(code, 12),
       photo: !!photo,
+      variants: cleanVariants(variants),
       enabled: true,
     };
     if (!task.name) throw new GameError('Aufgabe braucht einen Namen.');
@@ -309,6 +348,7 @@ class Game {
     if ('description' in patch) t.description = cleanText(patch.description, MAX_DESCRIPTION);
     if ('code' in patch) t.code = cleanText(patch.code, 12);
     if ('photo' in patch) t.photo = !!patch.photo;
+    if ('variants' in patch) t.variants = cleanVariants(patch.variants);
     if ('enabled' in patch) t.enabled = !!patch.enabled;
   }
 
@@ -347,11 +387,23 @@ class Game {
     const impostorSet = new Set([...fixed, ...rest.slice(0, impostors - fixed.length)]);
     const perPlayer = Math.min(this.settings.tasksPerPlayer, enabledTasks.length);
 
-    for (const p of chosen) {
+    // Varianten über alle Spieler hinweg zählen, damit nicht zwei dasselbe Objekt suchen
+    this.variantUsage = new Map();
+    for (const p of shuffle(chosen)) {
       p.role = impostorSet.has(p) ? 'impostor' : 'crewmate';
       p.tasks = shuffle(enabledTasks)
         .slice(0, perPlayer)
-        .map((t) => ({ id: t.id, name: t.name, location: t.location, description: t.description, code: t.code, photo: t.photo, done: false, rejected: false }));
+        .map((t) => ({
+          id: t.id,
+          name: t.name,
+          variant: pickVariant(t, this.variantUsage),
+          location: t.location,
+          description: t.description,
+          code: t.code,
+          photo: t.photo,
+          done: false,
+          rejected: false,
+        }));
       p.killReadyAt = now + this.settings.killCooldown * 1000;
     }
     this.sabotageReadyAt = now + this.settings.sabotageCooldown * 1000;
@@ -383,12 +435,12 @@ class Game {
     if (task.photo && !photoId) throw new GameError('Für diese Aufgabe brauchst du ein Beweisfoto.');
     task.done = true;
     task.rejected = false;
-    if (photoId) this.addProof(photoId, p, task.id, task.name, 'task', now);
+    if (photoId) this.addProof(photoId, p, task.id, taskLabel(task), 'task', now);
     if (p.role === 'crewmate') {
       this.progressLog.push({ at: now, ...this.taskProgress() });
-      this.logEvent(now, 'task', `${p.name} hat „${task.name}" erledigt`, { secret: true, players: [p.id] });
+      this.logEvent(now, 'task', `${p.name} hat „${taskLabel(task)}" erledigt`, { secret: true, players: [p.id] });
     } else {
-      this.logEvent(now, 'fake-task', `${p.name} hat die Tarnaufgabe „${task.name}" abgehakt`, { secret: true, players: [p.id] });
+      this.logEvent(now, 'fake-task', `${p.name} hat die Tarnaufgabe „${taskLabel(task)}" abgehakt`, { secret: true, players: [p.id] });
     }
     this.checkWin(now);
   }
@@ -415,7 +467,7 @@ class Game {
       task.done = false;
       task.rejected = true;
       if (p.role === 'crewmate') this.progressLog.push({ at: now, ...this.taskProgress() });
-      this.logEvent(now, 'mod', `Moderator hat das Foto von ${p.name} für „${task.name}" abgelehnt`, { secret: true, players: [p.id] });
+      this.logEvent(now, 'mod', `Moderator hat das Foto von ${p.name} für „${taskLabel(task)}" abgelehnt`, { secret: true, players: [p.id] });
     }
   }
 
@@ -682,7 +734,14 @@ class Game {
     const tasks = {};
     assigned.forEach((pid, i) => {
       const t = picked.length ? picked[i % picked.length] : null;
-      tasks[pid] = t ? { name: t.name, location: t.location, description: t.description, code: t.code, photo: !!t.photo } : null;
+      tasks[pid] = t ? {
+        name: t.name,
+        variant: this.variantUsage ? pickVariant(t, this.variantUsage) : '',
+        location: t.location,
+        description: t.description,
+        code: t.code,
+        photo: !!t.photo,
+      } : null;
     });
     this.sabotagesUsed += 1;
     this.sabotage = {
@@ -696,7 +755,7 @@ class Game {
     };
     const names = assigned.map((pid) => {
       const t = tasks[pid];
-      return `${this.players.get(pid).name}${t ? ` (${t.name}${t.location ? `, ${t.location}` : ''})` : ''}`;
+      return `${this.players.get(pid).name}${t ? ` (${taskLabel(t)}${t.location ? `, ${t.location}` : ''})` : ''}`;
     }).join(' & ');
     this.logEvent(now, 'sabotage', `Reaktor sabotiert! Reparieren müssen: ${names}`, { players: assigned });
     this.logEvent(now, 'sabotage-by', `Sabotage ausgelöst von ${imp.name}`, { secret: true, players: [imp.id] });
@@ -715,7 +774,7 @@ class Game {
       throw new GameError('Falscher Code. Schau nochmal am Aufgabenort nach!');
     }
     if (task && task.photo && !photoId) throw new GameError('Für die Reparatur brauchst du ein Beweisfoto.');
-    if (photoId) this.addProof(photoId, p, null, task ? task.name : 'Reaktor-Reparatur', 'repair', now);
+    if (photoId) this.addProof(photoId, p, null, task ? taskLabel(task) : 'Reaktor-Reparatur', 'repair', now);
     s.fixedBy.push(p.id);
     if (s.fixedBy.length >= s.needed) this.finishRepair(now);
   }
@@ -842,7 +901,7 @@ class Game {
           fixedBy: this.sabotage.fixedBy,
           // Reparatur-Aufgabe je Spieler – ohne Code, der steht nur am Aufgabenort
           tasks: Object.fromEntries(Object.entries(this.sabotage.tasks).map(([pid, t]) => [pid, t
-            ? { name: t.name, location: t.location, description: t.description, needsCode: !!t.code, needsPhoto: !!t.photo } : null])),
+            ? { name: t.name, variant: t.variant || '', location: t.location, description: t.description, needsCode: !!t.code, needsPhoto: !!t.photo } : null])),
         }
         : null,
       sabotagesLeft: this.phase === 'lobby' ? this.settings.sabotagesPerRound : this.settings.sabotagesPerRound - this.sabotagesUsed,
@@ -871,7 +930,7 @@ class Game {
       role: me.role,
       alive: me.alive,
       ejected: me.ejected,
-      tasks: me.tasks.map((t) => ({ id: t.id, name: t.name, location: t.location, description: t.description, needsCode: !!t.code, needsPhoto: !!t.photo, done: t.done, rejected: !!t.rejected })),
+      tasks: me.tasks.map((t) => ({ id: t.id, name: t.name, variant: t.variant || '', location: t.location, description: t.description, needsCode: !!t.code, needsPhoto: !!t.photo, done: t.done, rejected: !!t.rejected })),
       meetingsLeft: me.meetingsLeft,
       killReadyAt: isImpostor ? me.killReadyAt : null,
       sabotageReadyAt: isImpostor ? this.sabotageReadyAt : null,
@@ -898,7 +957,7 @@ class Game {
       fixedImpostor: this.fixedImpostors.has(p.id),
       bodyReported: p.bodyReported,
       meetingsLeft: p.meetingsLeft,
-      tasks: p.tasks.map((t) => ({ name: t.name, location: t.location, done: t.done })),
+      tasks: p.tasks.map((t) => ({ name: t.name, variant: t.variant || '', location: t.location, done: t.done })),
       killReadyAt: p.killReadyAt,
     }));
     view.taskCatalog = this.taskCatalog;

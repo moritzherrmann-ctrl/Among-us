@@ -515,3 +515,13 @@ textarea:focus { border-color: var(--primary); }
   .form-grid { grid-template-columns: 1fr; }
   .proof-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Aufgaben-Varianten */
+.task-variant { display: block; color: #ffd54f; font-weight: 800; }
+.task-variant.big { font-size: 1.3rem; margin: 4px 0 8px; }
+.task-editor li textarea[data-field='description'] { grid-column: 2 / 4; }
+.task-editor li textarea.variants { grid-column: 4 / -1; }
+@media (max-width: 640px) {
+  .task-editor li textarea[data-field='description'],
+  .task-editor li textarea.variants { grid-column: 2 / 3; }
+}

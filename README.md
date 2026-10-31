@@ -24,6 +24,9 @@ Ein Gerät (Laptop/PC) startet den Server, alle anderen Handys/Tablets verbinden
 - **Spielerauswahl**: wer spielt mit, Impostor fest einteilen, umbenennen, entfernen
 - **Aufgabenauswahl**: Katalog bearbeiten, Aufgaben an/aus, eigene Aufgaben mit Ort, Beschreibung & Code anlegen,
   „Standard-Aufgaben laden“ ersetzt den Katalog durch die 17 mitgelieferten Aufgaben
+- **Varianten**: Eine Aufgabe kann mehrere Varianten haben (eine pro Zeile), z. B. bei „Gegenstand finden“
+  verschiedene Objekte. Jeder Spieler bekommt zufällig eine – niemand dieselbe, solange genug Varianten
+  da sind; sonst wird gleichmäßig wiederholt. Gilt auch für die Reaktor-Reparatur.
 - **Beweisfotos**: pro Aufgabe „📷 Foto“ an/aus (oder für alle auf einmal). Im Tab „Spiel“ zeigt eine
   Galerie alle Fotos der Runde; ein abgelehntes Foto macht die Aufgabe beim Spieler wieder offen.
   Fotos werden verkleinert in `data/photos/` gespeichert und sind nur mit Moderator-PIN abrufbar.

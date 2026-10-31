@@ -222,14 +222,14 @@ function renderSabotage(me) {
     const done = s.fixedBy.includes(id);
     const t = s.tasks[id];
     return p ? `<div class="fixer ${done ? 'done' : ''}">${crewmate(colorOf(p), { size: 24 })}
-      <span><span><b>${esc(p.name)}</b> ${done ? '✅' : '⏳'}</span>${t ? `<small>${esc(t.name)}${t.location ? ` · 📍 ${esc(t.location)}` : ''}</small>` : ''}</span></div>` : '';
+      <span><span><b>${esc(p.name)}</b> ${done ? '✅' : '⏳'}</span>${t ? `<small>${esc(t.name)}${t.variant ? `: <b>${esc(t.variant)}</b>` : ''}${t.location ? ` · 📍 ${esc(t.location)}` : ''}</small>` : ''}</span></div>` : '';
   }).join('');
   let action = '';
   if (me && me.mustFix && me.alive) {
     const t = s.tasks[me.id];
     action = `<div class="repair-task">
         <p>Du bist ausgelost! Deine Reparatur-Aufgabe:</p>
-        ${t ? `<h3>${esc(t.name)}</h3>${t.location ? `<p>📍 ${esc(t.location)}</p>` : ''}${t.description ? `<p class="task-desc">${esc(t.description)}</p>` : ''}` : ''}
+        ${t ? `<h3>${esc(t.name)}</h3>${t.variant ? `<p class="task-variant">🎯 ${esc(t.variant)}</p>` : ''}${t.location ? `<p>📍 ${esc(t.location)}</p>` : ''}${t.description ? `<p class="task-desc">${esc(t.description)}</p>` : ''}` : ''}
       </div>
       <button class="btn danger big" data-action="fix">🔧 ${t ? 'Aufgabe erledigt – reparieren' : 'Reaktor reparieren'}</button>`;
   } else if (me && me.hasFixed) {
@@ -258,7 +258,7 @@ function renderPlaying(me) {
       <li class="task ${t.done ? 'done' : ''}">
         <button data-action="task" data-task="${t.id}" ${t.done ? 'disabled' : ''}>
           <span class="check">${t.done ? '✔' : ''}</span>
-          <span class="task-text"><b>${esc(t.name)}</b>${t.location ? `<small>📍 ${esc(t.location)}</small>` : ''}${t.description && !t.done ? `<span class="task-desc">${esc(t.description)}</span>` : ''}${t.rejected && !t.done ? '<span class="task-rejected">❌ Foto abgelehnt – bitte nochmal erledigen</span>' : ''}</span>
+          <span class="task-text"><b>${esc(t.name)}</b>${t.variant ? `<span class="task-variant">🎯 ${esc(t.variant)}</span>` : ''}${t.location ? `<small>📍 ${esc(t.location)}</small>` : ''}${t.description && !t.done ? `<span class="task-desc">${esc(t.description)}</span>` : ''}${t.rejected && !t.done ? '<span class="task-rejected">❌ Foto abgelehnt – bitte nochmal erledigen</span>' : ''}</span>
           ${t.needsCode && !t.done ? '<span class="tag">Code</span>' : ''}
           ${t.needsPhoto && !t.done ? '<span class="tag photo-tag">📷</span>' : ''}
         </button>
@@ -499,6 +499,7 @@ function taskDialog(task, { title, question, okText, okClass, event, payload, su
   const needsPhoto = !!task.needsPhoto;
   const modal = openModal(`
     <h2>${esc(title)}</h2>
+    ${task.variant ? `<p class="task-variant big">🎯 ${esc(task.variant)}</p>` : ''}
     ${task.location ? `<p>📍 ${esc(task.location)}</p>` : ''}
     ${task.description ? `<p class="task-desc">${esc(task.description)}</p>` : ''}
     ${task.needsCode

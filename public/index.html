@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f1e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  <title>Among Us Real Life</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="player">
+  <div class="stars"></div>
+  <main id="app" class="container">
+    <section id="join" class="screen hidden">
+      <div class="hero">
+        <div id="join-avatar"></div>
+        <h1>AMONG US<br><small>REAL LIFE</small></h1>
+      </div>
+      <form id="join-form" class="card">
+        <label for="name">Dein Name</label>
+        <input id="name" name="name" maxlength="20" autocomplete="nickname" placeholder="z. B. Max" required>
+        <button class="btn primary big" type="submit">Beitreten</button>
+      </form>
+      <p class="hint center">Moderator? <a href="/moderator">Zur Moderatoren-Ansicht</a></p>
+    </section>
+
+    <section id="game" class="screen hidden">
+      <header id="me-header" class="me-header"></header>
+      <div id="announcement"></div>
+      <div id="main"></div>
+    </section>
+  </main>
+  <div id="overlay"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/player.js"></script>
+</body>
+</html>

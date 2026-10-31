@@ -1,0 +1,14 @@
+{
+  "name": "Among Us Real Life",
+  "short_name": "Among Us RL",
+  "description": "Among Us im echten Leben – mit Spieler-, Aufgaben- und Moderatoren-Ansicht",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0f1e",
+  "theme_color": "#0b0f1e",
+  "lang": "de",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

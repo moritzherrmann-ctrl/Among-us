@@ -23,7 +23,7 @@ Ein Gerät (Laptop/PC) startet den Server, alle anderen Handys/Tablets verbinden
 **Moderatoren-App** (`http://<IP>:3000/moderator`, mit PIN)
 - **Spielerauswahl**: wer spielt mit, Impostor fest einteilen, umbenennen, entfernen
 - **Aufgabenauswahl**: Katalog bearbeiten, Aufgaben an/aus, eigene Aufgaben mit Ort, Beschreibung & Code anlegen,
-  „Standard-Aufgaben laden“ ersetzt den Katalog durch die 17 mitgelieferten Aufgaben
+  „Standard-Aufgaben laden“ ersetzt den Katalog durch die 15 mitgelieferten Aufgaben
 - **Varianten**: Eine Aufgabe kann mehrere Varianten haben (eine pro Zeile), z. B. bei „Gegenstand finden“
   verschiedene Objekte. Jeder Spieler bekommt zufällig eine – niemand dieselbe, solange genug Varianten
   da sind; sonst wird gleichmäßig wiederholt. Gilt auch für die Reaktor-Reparatur.

@@ -4,8 +4,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Game, GameError, DEFAULT_TASKS } = require('../src/game');
 
-// Für die allgemeinen Tests: Standard-Aufgaben ohne Fotopflicht
-const NO_PHOTO_TASKS = DEFAULT_TASKS.map((t) => ({ ...t, photo: false }));
+// Für die allgemeinen Tests: Standard-Aufgaben ohne Fotopflicht und ohne Codes
+const NO_PHOTO_TASKS = DEFAULT_TASKS.map((t) => ({ ...t, photo: false, code: '' }));
 
 function setup(n = 5, settings = {}) {
   const game = new Game({ tasks: NO_PHOTO_TASKS, settings: { discussionTime: 10, votingTime: 20, resultTime: 5, manualMeetingStart: false, ...settings } });
@@ -276,14 +276,19 @@ test('Aufgaben-Beschreibung: wird gespeichert, an Spieler verteilt und bei der R
   assert.ok(game.viewFor(fixer, 0).sabotage.tasks[fixer].description.length > 0);
 });
 
-test('Standard-Aufgaben: 17 neue Aufgaben, Zurücksetzen ersetzt den Katalog', () => {
+test('Standard-Aufgaben: 15 Aufgaben, Zurücksetzen ersetzt den Katalog', () => {
   const game = new Game({ tasks: [{ name: 'Alt', location: 'X' }] });
   assert.equal(game.taskCatalog.length, 1);
   game.resetTasks();
-  assert.equal(game.taskCatalog.length, 17);
+  assert.equal(game.taskCatalog.length, 15);
   assert.ok(!game.taskCatalog.some((t) => t.name === 'Alt'));
-  assert.ok(game.taskCatalog.every((t) => t.name && t.description && t.enabled));
-  assert.equal(new Set(game.taskCatalog.map((t) => t.id)).size, 17);
+  assert.ok(game.taskCatalog.every((t) => t.name && t.description && t.location && t.enabled));
+  assert.equal(new Set(game.taskCatalog.map((t) => t.id)).size, 15);
+  const byName = Object.fromEntries(game.taskCatalog.map((t) => [t.name, t]));
+  assert.equal(byName['Gegenstände zählen'].code, '32');
+  assert.equal(byName['Münzen zählen'].code, '20');
+  assert.deepEqual(byName['Gegenstand finden'].variants, ['Großer brauner Teddybär', 'Locher', 'Kürbis-Plüschtier']);
+  assert.deepEqual(byName['Puzzle lösen'].variants, ['Strand', 'Regenbogen', 'Lagerfeuer']);
 });
 
 test('Meeting: Sammelphase ohne Zeitlimit, Diskussion startet erst durch den Spielleiter', () => {

@@ -301,7 +301,7 @@ function sabotageBanner() {
     const p = playerById(id);
     const t = s.tasks[id];
     return p ? `<span class="fixer ${s.fixedBy.includes(id) ? 'done' : ''}">${crewmate(colorOf(p), { size: 26 })}
-      <span>${esc(p.name)} ${s.fixedBy.includes(id) ? '✅' : '⏳'}${t ? `<small>${esc(t.name)}${t.variant ? `: ${esc(t.variant)}` : ''}${t.location ? ` · 📍 ${esc(t.location)}` : ''}</small>` : ''}</span></span>` : '';
+      <span>${esc(p.name)} ${s.fixedBy.includes(id) ? '✅' : '⏳'}${t ? `<small>${taskTitle(t)}${t.location ? ` · 📍 ${esc(t.location)}` : ''}</small>` : ''}</span></span>` : '';
   }).join('');
   return `<div class="live-sabotage">
     <span>☢️ REAKTOR-KERNSCHMELZE</span>

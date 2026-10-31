@@ -207,8 +207,8 @@ io.on('connection', (socket) => {
   socket.on('mod:player:impostor', handle(socket, requireMod(({ id, fixed }) => game.setFixedImpostor(id, fixed))));
   socket.on('mod:player:rename', handle(socket, requireMod(({ id, name }) => game.renamePlayer(id, name))));
   socket.on('mod:player:alive', handle(socket, requireMod(({ id, alive }, now) => game.setAlive(id, alive, now))));
-  socket.on('mod:player:kick', handle(socket, requireMod(({ id }) => {
-    game.removePlayer(id);
+  socket.on('mod:player:kick', handle(socket, requireMod(({ id }, now) => {
+    game.removePlayer(id, now);
     for (const s of playerSockets.get(id) || []) s.emit('kicked');
     playerSockets.delete(id);
   })));

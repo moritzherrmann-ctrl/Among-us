@@ -97,13 +97,14 @@ function cleanVariants(value) {
   const seen = new Set();
   const out = [];
   for (const v of list) {
+    if (out.length >= MAX_VARIANTS) break;
     const clean = cleanText(v, 60);
     if (clean && !seen.has(clean.toLowerCase())) {
       seen.add(clean.toLowerCase());
       out.push(clean);
     }
   }
-  return out.slice(0, MAX_VARIANTS);
+  return out;
 }
 
 /** Anzeigename einer zugeteilten Aufgabe, z. B. „Gegenstand finden: Roter Ball". */
@@ -184,7 +185,8 @@ class Game {
     this.sabotage = null;
     this.sabotageReadyAt = 0;
     this.sabotagesUsed = 0;
-    this.variantUsage = null; // wie oft welche Aufgaben-Variante vergeben wurde
+    this.variantUsage = new Map(); // wie oft welche Aufgaben-Variante vergeben wurde
+    this.roundTasks = []; // Aufgaben dieser Runde (Stand beim Start), auch für Reparaturen
     this.pendingKills = []; // verzögerte Kills: { impostorId, victimId, at, diesAt }
     this.winner = null;
     this.startedAt = null;
@@ -294,11 +296,21 @@ class Game {
     }
   }
 
-  removePlayer(playerId) {
+  removePlayer(playerId, now = Date.now()) {
     const p = this.getPlayer(playerId);
     this.players.delete(p.id);
     this.fixedImpostors.delete(p.id);
-    if (this.meeting) delete this.meeting.votes[p.id];
+    if (!p.role || (this.phase !== 'playing' && this.phase !== 'meeting')) return p;
+    // Wie ein Ausscheiden behandeln: Reparatur neu auslosen, verzögerten Kill streichen, Sieg prüfen.
+    this.afterDeath(p, now);
+    const m = this.meeting;
+    if (m) {
+      delete m.votes[p.id];
+      const alive = this.participants().filter((x) => x.alive);
+      if (m.stage === 'voting' && alive.every((x) => x.id in m.votes)) this.finishVoting(now);
+    }
+    this.logEvent(now, 'mod', `${p.name} wurde aus dem Spiel entfernt`, { players: [p.id] });
+    this.checkWin(now);
     return p;
   }
 
@@ -387,11 +399,13 @@ class Game {
     const impostorSet = new Set([...fixed, ...rest.slice(0, impostors - fixed.length)]);
     const perPlayer = Math.min(this.settings.tasksPerPlayer, enabledTasks.length);
 
-    // Varianten über alle Spieler hinweg zählen, damit nicht zwei dasselbe Objekt suchen
-    this.variantUsage = new Map();
-    for (const p of shuffle(chosen)) {
-      p.role = impostorSet.has(p) ? 'impostor' : 'crewmate';
-      p.tasks = shuffle(enabledTasks)
+    // Stand des Katalogs einfrieren: Änderungen während der Runde gelten erst ab der nächsten.
+    this.roundTasks = demo ? [] : enabledTasks.map((t) => ({ ...t, variants: [...(t.variants || [])] }));
+    for (const p of chosen) p.role = impostorSet.has(p) ? 'impostor' : 'crewmate';
+    // Crew zuerst: Tarnaufgaben der Impostor sollen keine knappen Varianten wegnehmen.
+    const order = [...shuffle(chosen.filter((p) => p.role === 'crewmate')), ...shuffle(chosen.filter((p) => p.role === 'impostor'))];
+    for (const p of order) {
+      p.tasks = shuffle(demo ? enabledTasks : this.roundTasks)
         .slice(0, perPlayer)
         .map((t) => ({
           id: t.id,
@@ -726,17 +740,16 @@ class Game {
     const assigned = shuffle(candidates).slice(0, this.settings.sabotageFixesNeeded).map((p) => p.id);
     if (!assigned.length) throw new GameError('Niemand da, der reparieren könnte.');
     // Jeder Reparierer bekommt eine zufällige Aufgabe aus dem Katalog (möglichst verschiedene).
-    const pool = this.taskCatalog.filter((t) => t.enabled);
     const catalog = this.settings.demoMode
       ? assigned.map((_, i) => ({ ...demoTask(i), name: `Demo-Reparatur ${i + 1}` }))
-      : pool.length ? pool : this.taskCatalog;
+      : this.roundTasks;
     const picked = shuffle(catalog);
     const tasks = {};
     assigned.forEach((pid, i) => {
       const t = picked.length ? picked[i % picked.length] : null;
       tasks[pid] = t ? {
         name: t.name,
-        variant: this.variantUsage ? pickVariant(t, this.variantUsage) : '',
+        variant: pickVariant(t, this.variantUsage),
         location: t.location,
         description: t.description,
         code: t.code,
@@ -901,7 +914,7 @@ class Game {
           fixedBy: this.sabotage.fixedBy,
           // Reparatur-Aufgabe je Spieler – ohne Code, der steht nur am Aufgabenort
           tasks: Object.fromEntries(Object.entries(this.sabotage.tasks).map(([pid, t]) => [pid, t
-            ? { name: t.name, variant: t.variant || '', location: t.location, description: t.description, needsCode: !!t.code, needsPhoto: !!t.photo } : null])),
+            ? { name: t.name, variant: t.variant, location: t.location, description: t.description, needsCode: !!t.code, needsPhoto: !!t.photo } : null])),
         }
         : null,
       sabotagesLeft: this.phase === 'lobby' ? this.settings.sabotagesPerRound : this.settings.sabotagesPerRound - this.sabotagesUsed,
@@ -930,7 +943,7 @@ class Game {
       role: me.role,
       alive: me.alive,
       ejected: me.ejected,
-      tasks: me.tasks.map((t) => ({ id: t.id, name: t.name, variant: t.variant || '', location: t.location, description: t.description, needsCode: !!t.code, needsPhoto: !!t.photo, done: t.done, rejected: !!t.rejected })),
+      tasks: me.tasks.map((t) => ({ id: t.id, name: t.name, variant: t.variant, location: t.location, description: t.description, needsCode: !!t.code, needsPhoto: !!t.photo, done: t.done, rejected: !!t.rejected })),
       meetingsLeft: me.meetingsLeft,
       killReadyAt: isImpostor ? me.killReadyAt : null,
       sabotageReadyAt: isImpostor ? this.sabotageReadyAt : null,
@@ -957,7 +970,7 @@ class Game {
       fixedImpostor: this.fixedImpostors.has(p.id),
       bodyReported: p.bodyReported,
       meetingsLeft: p.meetingsLeft,
-      tasks: p.tasks.map((t) => ({ name: t.name, variant: t.variant || '', location: t.location, done: t.done })),
+      tasks: p.tasks.map((t) => ({ name: t.name, variant: t.variant, location: t.location, done: t.done })),
       killReadyAt: p.killReadyAt,
     }));
     view.taskCatalog = this.taskCatalog;

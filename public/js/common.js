@@ -76,6 +76,11 @@ function updateCountdowns() {
 setInterval(updateCountdowns, 200);
 
 /** HTML für einen Countdown. Der Text wird von updateCountdowns() gesetzt, damit das HTML stabil bleibt. */
+/** „Aufgabe: Variante" als HTML, z. B. „Gegenstand finden: <b>Schlüssel</b>". */
+function taskTitle(t) {
+  return `${esc(t.name)}${t.variant ? `: <b>${esc(t.variant)}</b>` : ''}`;
+}
+
 function countdown(endsAt, { prefix = '', doneText = '', toggle = '' } = {}) {
   return `<span class="countdown" data-ends="${endsAt}" data-prefix="${esc(prefix)}" data-done-text="${esc(doneText)}"${toggle ? ` data-toggle="${toggle}"` : ''}></span>`;
 }

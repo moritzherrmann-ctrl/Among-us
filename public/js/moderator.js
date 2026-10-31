@@ -165,7 +165,7 @@ function renderRunning() {
       <p>Ausgelost (${s.fixes}/${s.needed} repariert):</p>
       <ul class="repair-list">${s.assigned.map((id) => {
         const t = s.tasks[id];
-        return `<li><b>${esc(playerById(id)?.name || '?')}</b> ${s.fixedBy.includes(id) ? '✅' : '⏳'}${t ? ` – ${esc(t.name)}${t.variant ? `: <b>${esc(t.variant)}</b>` : ''}${t.location ? ` (📍 ${esc(t.location)})` : ''}${t.description ? `<br><small>${esc(t.description)}</small>` : ''}` : ''}</li>`;
+        return `<li><b>${esc(playerById(id)?.name || '?')}</b> ${s.fixedBy.includes(id) ? '✅' : '⏳'}${t ? ` – ${taskTitle(t)}${t.location ? ` (📍 ${esc(t.location)})` : ''}${t.description ? `<br><small>${esc(t.description)}</small>` : ''}` : ''}</li>`;
       }).join('')}</ul>
       <button class="btn secondary" data-action="end-sabotage">Sabotage beenden</button>
     </div>` : '';
@@ -179,7 +179,8 @@ function renderRunning() {
       <td><div class="cell-player">${crewmate(colorOf(p), { dead: !p.alive, size: 26 })}<span>${esc(p.name)}${p.connected ? '' : ' <small class="offline-dot">offline</small>'}</span></div></td>
       <td><span class="role ${p.role}">${p.role === 'impostor' ? '🔪 Impostor' : 'Crew'}</span></td>
       <td>${status}</td>
-      <td>${p.role === 'impostor' ? (p.alive ? countdown(p.killReadyAt, { doneText: 'Kill bereit' }) : '–') : `${done}/${p.tasks.length}`}</td>
+      <td>${p.role === 'impostor' ? (p.alive ? countdown(p.killReadyAt, { doneText: 'Kill bereit' }) : '–') : `${done}/${p.tasks.length}`}
+        ${p.tasks.filter((t) => t.variant).map((t) => `<small class="cell-variant${t.done ? ' done' : ''}">🎯 ${taskTitle(t)}</small>`).join('')}</td>
       <td>${p.alive
         ? `<button class="btn small danger" data-action="kill" data-id="${p.id}">Tot</button>`
         : `<button class="btn small secondary" data-action="revive" data-id="${p.id}">Wiederbeleben</button>`}</td>
@@ -449,6 +450,7 @@ $('#dash').addEventListener('change', (e) => {
       render();
     });
   } else if (el.dataset.field) {
+    if (el.dataset.field === 'variants') warnVariants(el.value);
     const value = el.type === 'checkbox' ? el.checked : el.value;
     send('mod:task:update', { id: el.dataset.id, [el.dataset.field]: value }).then((r) => {
       if (!r.ok) {
@@ -459,9 +461,17 @@ $('#dash').addEventListener('change', (e) => {
   }
 });
 
+/** Der Server übernimmt höchstens 30 Varianten mit je 60 Zeichen – vorher Bescheid sagen. */
+function warnVariants(text) {
+  const lines = String(text).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length > 30) toast(`Nur die ersten 30 von ${lines.length} Varianten werden übernommen.`, 'error', 6000);
+  else if (lines.some((l) => l.length > 60)) toast('Varianten mit mehr als 60 Zeichen werden gekürzt.', 'error', 6000);
+}
+
 $('#task-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
+  warnVariants(form.variants.value);
   const res = await send('mod:task:add', {
     name: form.name.value,
     location: form.location.value,

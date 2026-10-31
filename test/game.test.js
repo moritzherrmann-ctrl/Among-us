@@ -386,3 +386,51 @@ test('Varianten: bei mehr Spielern als Varianten wird gleichmäßig wiederholt',
   assert.deepEqual(game.taskCatalog[0].variants, ['X']);
   assert.deepEqual(game.config().tasks[0].variants, ['X']);
 });
+
+test('Entfernen im Spiel: Reparatur neu auslosen, verzögerten Kill streichen, Sieg prüfen', () => {
+  const { game, impostors, crew } = started(6, { sabotageCooldown: 0, killCooldown: 0, killDelay: 30 });
+  game.startSabotage(impostors[0].id, 0);
+  const fixer = game.sabotage.assigned[0];
+  game.removePlayer(fixer, 1);
+  assert.ok(!game.sabotage.assigned.includes(fixer));
+  assert.equal(game.sabotage.assigned.length, 2);
+  game.endSabotage(2);
+  const victim = crew.find((p) => game.players.has(p.id));
+  game.kill(impostors[0].id, victim.id, 3);
+  game.removePlayer(victim.id, 4);
+  assert.equal(game.pendingKills.length, 0);
+  game.removePlayer(impostors[0].id, 5);
+  assert.equal(game.phase, 'ended');
+  assert.equal(game.winner.team, 'crew');
+});
+
+test('Entfernen während der Abstimmung beendet sie, wenn alle Übrigen schon abgestimmt haben', () => {
+  const { game, crew, impostors } = started(6, { discussionTime: 0 });
+  game.callMeeting(crew[0].id, null, 0);
+  for (const p of [...crew.slice(0, 4), impostors[0]]) game.vote(p.id, 'skip', 1);
+  assert.equal(game.meeting.stage, 'voting');
+  game.removePlayer(crew[4].id, 2);
+  assert.equal(game.meeting.stage, 'result');
+});
+
+test('Varianten: Crew bekommt zuerst, Impostor-Tarnaufgaben nehmen keine knappen Varianten weg', () => {
+  for (let run = 0; run < 30; run++) {
+    const game = new Game({ settings: { tasksPerPlayer: 1, impostors: 1 }, tasks: [{ name: 'Suchen', variants: ['A', 'B', 'C', 'D'] }] });
+    const ps = ['a', 'b', 'c', 'd', 'e'].map((n) => game.join(n));
+    game.start(0);
+    const crewVariants = ps.filter((p) => p.role === 'crewmate').map((p) => p.tasks[0].variant);
+    assert.equal(new Set(crewVariants).size, 4);
+  }
+});
+
+test('Rundenkatalog: Änderungen während der Runde wirken erst in der nächsten (auch bei Reparaturen)', () => {
+  const game = new Game({ settings: { sabotageCooldown: 0, tasksPerPlayer: 1 }, tasks: [{ name: 'Suchen', variants: ['A', 'B', 'C', 'D', 'E', 'F', 'G'] }] });
+  const ps = ['a', 'b', 'c', 'd', 'e'].map((n) => game.join(n));
+  game.start(0);
+  game.updateTask(game.taskCatalog[0].id, { name: 'Neu', variants: ['X', 'Y'] });
+  game.startSabotage(ps.find((p) => p.role === 'impostor').id, 0);
+  for (const t of Object.values(game.sabotage.tasks)) {
+    assert.equal(t.name, 'Suchen');
+    assert.ok(['A', 'B', 'C', 'D', 'E', 'F', 'G'].includes(t.variant));
+  }
+});

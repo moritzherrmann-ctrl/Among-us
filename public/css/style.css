@@ -525,3 +525,5 @@ textarea:focus { border-color: var(--primary); }
   .task-editor li textarea[data-field='description'],
   .task-editor li textarea.variants { grid-column: 2 / 3; }
 }
+.cell-variant { display: block; font-size: 0.78rem; color: #ffd54f; white-space: nowrap; }
+.cell-variant.done { color: var(--muted); text-decoration: line-through; }

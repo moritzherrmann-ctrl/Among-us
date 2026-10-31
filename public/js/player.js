@@ -222,7 +222,7 @@ function renderSabotage(me) {
     const done = s.fixedBy.includes(id);
     const t = s.tasks[id];
     return p ? `<div class="fixer ${done ? 'done' : ''}">${crewmate(colorOf(p), { size: 24 })}
-      <span><span><b>${esc(p.name)}</b> ${done ? '✅' : '⏳'}</span>${t ? `<small>${esc(t.name)}${t.variant ? `: <b>${esc(t.variant)}</b>` : ''}${t.location ? ` · 📍 ${esc(t.location)}` : ''}</small>` : ''}</span></div>` : '';
+      <span><span><b>${esc(p.name)}</b> ${done ? '✅' : '⏳'}</span>${t ? `<small>${taskTitle(t)}${t.location ? ` · 📍 ${esc(t.location)}` : ''}</small>` : ''}</span></div>` : '';
   }).join('');
   let action = '';
   if (me && me.mustFix && me.alive) {

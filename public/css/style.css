@@ -527,3 +527,12 @@ textarea:focus { border-color: var(--primary); }
 }
 .cell-variant { display: block; font-size: 0.78rem; color: #ffd54f; white-space: nowrap; }
 .cell-variant.done { color: var(--muted); text-decoration: line-through; }
+
+/* Impostor-Team */
+.imp-team { background: #3a0610; border: 2px solid var(--impostor); border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
+.imp-team p { margin: 4px 0; }
+.imp-team-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 8px 0; }
+.imp-mate { display: grid; justify-items: center; gap: 2px; font-size: 1.1rem; }
+.imp-mate.is-dead { opacity: 0.5; }
+.secret .imp-team { background: #0004; }
+.vote .voted.mate { color: var(--impostor); }

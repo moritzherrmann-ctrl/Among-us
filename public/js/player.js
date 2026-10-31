@@ -109,6 +109,17 @@ function detectEvents(prev, next) {
   }
 }
 
+/** Box mit den anderen Impostorn (nur Impostor bekommen diese Daten vom Server). */
+function impostorTeam(partners, colors) {
+  if (!partners.length) return '<div class="imp-team"><p>Du bist der einzige Impostor. Viel Glück!</p></div>';
+  return `<div class="imp-team">
+    <p>${partners.length === 1 ? 'Dein Komplize ist:' : 'Deine Komplizen sind:'}</p>
+    <div class="imp-team-list">${partners.map((p) => `
+      <div class="imp-mate ${p.alive === false ? 'is-dead' : ''}">${crewmate(colors[p.color]?.hex, { dead: p.alive === false, size: 46 })}<b>${esc(p.name)}</b></div>`).join('')}</div>
+    <p class="hint">Verratet euch nicht – nur ihr wisst voneinander.</p>
+  </div>`;
+}
+
 function showRoleReveal(s) {
   const me = s.me;
   const isImp = me.role === 'impostor';
@@ -118,9 +129,7 @@ function showRoleReveal(s) {
       <p class="small">Schirm verdecken! Deine Rolle:</p>
       <h2>${isImp ? 'IMPOSTOR' : 'CREWMATE'}</h2>
       ${crewmate(s.colors[me.color].hex, { size: 110 })}
-      <p>${isImp
-        ? (partners.length ? `Deine Komplizen: <b>${partners.map((p) => esc(p.name)).join(', ')}</b>` : 'Du bist allein. Viel Glück!')
-        : `Unter euch ${s.settings.impostors === 1 ? 'ist <b>1 Impostor</b>' : `sind <b>${s.settings.impostors} Impostor</b>`}. Erledige deine Aufgaben!`}</p>
+      ${isImp ? impostorTeam(partners, s.colors) : `<p>Unter euch ${s.settings.impostors === 1 ? 'ist <b>1 Impostor</b>' : `sind <b>${s.settings.impostors} Impostor</b>`}. Erledige deine Aufgaben!</p>`}
       <button class="btn primary big" data-close>Verstanden</button>
     </div>`);
 }
@@ -292,7 +301,7 @@ function renderPlaying(me) {
     secret = isImp ? `
       <div class="secret impostor">
         <h3>Du bist IMPOSTOR 🔪</h3>
-        ${partners.length ? `<p>Komplizen: ${partners.map((p) => `<b>${esc(p.name)}</b>${p.alive ? '' : ' 💀'}`).join(', ')}</p>` : ''}
+        ${impostorTeam(partners, state.colors)}
         <p class="hint">Deine Aufgaben sind nur Tarnung – sie zählen nicht.</p>
         ${me.alive ? `<button class="btn danger big" id="kill-btn" data-action="kill" ${victims.length ? '' : 'disabled'}>
           🔪 Opfer auswählen ${countdown(me.killReadyAt, { prefix: '– ', doneText: '– bereit', toggle: 'kill-btn' })}</button>` : ''}
@@ -350,6 +359,7 @@ function renderMeeting(me, m) {
           ${canVote && p.alive ? '' : 'disabled'}>
           ${crewmate(colorOf(p), { dead: !p.alive, size: 34 })}
           <span>${esc(p.name)}</span>
+          ${p.role === 'impostor' && p.id !== me.id ? '<span class="voted mate">🔪 Komplize</span>' : ''}
           ${voted.has(p.id) ? '<span class="voted">✔ gewählt</span>' : ''}
         </button>`).join('')}</div>
       <button class="btn secondary big ${me.myVote === 'skip' ? 'mine' : ''}" data-action="vote" data-target="skip" ${canVote ? '' : 'disabled'}>⏭ Überspringen</button>`;

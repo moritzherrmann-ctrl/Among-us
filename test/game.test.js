@@ -439,3 +439,17 @@ test('Rundenkatalog: Änderungen während der Runde wirken erst in der nächsten
     assert.ok(['A', 'B', 'C', 'D', 'E', 'F', 'G'].includes(t.variant));
   }
 });
+
+test('Impostor kennen sich gegenseitig, Crewmates erfahren keine Rollen', () => {
+  const { game, impostors, crew } = started(7, { impostors: 3 });
+  assert.equal(impostors.length, 3);
+  for (const imp of impostors) {
+    const view = game.viewFor(imp.id, 0);
+    const known = view.players.filter((p) => p.role === 'impostor').map((p) => p.id).sort();
+    assert.deepEqual(known, impostors.map((p) => p.id).sort());
+  }
+  for (const c of crew) {
+    const view = game.viewFor(c.id, 0);
+    assert.ok(view.players.every((p) => p.role === undefined));
+  }
+});
